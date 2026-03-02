@@ -31,13 +31,24 @@ def main(*args):
     X = np.array([[0, 1],
               [0, 0],
               [0,1]])
+    k = args[0]
+    goal = args[1]
+    
     A = get_similarity_matrix(X)
-    print(A)
-    print("eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+    if goal == 'sym':
+        print(A)
+        return
+    
     D = get_diagonal_degree_matrix(A)
-    print(D)
-    print("pppppppppppppppppppppppppppppppppppppppppppppppppppppppppp")
+    if goal == 'ddg':
+        print(D)
+        return 
+    
     W = get_normalized_similarity_matrix(A,D)
+    if goal == 'norm':
+        print(W)
+        return
+    
     print(W)
     print("pppppppppppppppppppppppppppppppppppppppppppppppppppppppppp")
     print(init_H(W, 2))
