@@ -1,23 +1,24 @@
 #include "matrix_util.h"
 
-// Create a new matrix
 MatrixPtr create_matrix(int m, int n)
 {
     MatrixPtr A = (MatrixPtr)malloc(sizeof(Matrix));
     if (!A)
     {
-        fprintf(stderr, "Error: malloc failed for Matrix struct.\n");
-        exit(EXIT_FAILURE);
+        printf("Failed to allocate Matrix struct");
+        return NULL;
     }
+
     A->m = m;
     A->n = n;
-    A->data = (double *)calloc(m * n, sizeof(double));
+    A->data = (double *)malloc(m * n*sizeof(double));
     if (!A->data)
     {
-        fprintf(stderr, "Error: calloc failed for Matrix data.\n");
+        printf("Failed to allocate Matrix data");
         free(A);
-        exit(EXIT_FAILURE);
+        return NULL;
     }
+
     return A;
 }
 
@@ -124,7 +125,7 @@ MatrixPtr mat_elementwise_prod(MatrixPtr A, MatrixPtr B)
 {
     if (A->m != B->m || A->n != B->n)
     {
-        fprintf(stderr, "Error: dimensions do not match for element-wise multiplication.\n");
+        fprintf(stderr, "Error: dimensions do not match for element-wise multiplication1.\n");
         exit(EXIT_FAILURE);
     }
     MatrixPtr C = create_matrix(A->m, A->n);
@@ -138,7 +139,7 @@ void mat_elementwise_prod_inplace(MatrixPtr A, MatrixPtr B)
 {
     if (A->m != B->m || A->n != B->n)
     {
-        fprintf(stderr, "Error: dimensions do not match for element-wise multiplication.\n");
+        fprintf(stderr, "Error: dimensions do not match for element-wise multiplication2.\n");
         exit(EXIT_FAILURE);
     }
     for (int i = 0; i < A->m * A->n; i++)
