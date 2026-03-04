@@ -25,8 +25,7 @@ MatrixPtr create_matrix(int m, int n)
 // Free memory
 void free_matrix(MatrixPtr A)
 {
-    if (!A)
-        return;
+    CHECK_MATRIX_ALLOC(A);
     free(A->data);
     free(A);
 }
@@ -68,6 +67,9 @@ void mat_set(MatrixPtr A, int i, int j, double val)
 MatrixPtr mat_transpose(MatrixPtr A)
 {
     MatrixPtr T = create_matrix(A->n, A->m);
+
+    CHECK_MATRIX_ALLOC(T);
+
     for (int i = 0; i < A->m; i++)
         for (int j = 0; j < A->n; j++)
             T->data[j * T->n + i] = A->data[i * A->n + j];
@@ -107,6 +109,9 @@ MatrixPtr mat_dot(MatrixPtr A, MatrixPtr B)
         exit(EXIT_FAILURE);
     }
     MatrixPtr C = create_matrix(A->m, B->n);
+
+    CHECK_MATRIX_ALLOC(C);
+
     for (int i = 0; i < A->m; i++)
     {
         for (int j = 0; j < B->n; j++)
@@ -129,6 +134,9 @@ MatrixPtr mat_elementwise_prod(MatrixPtr A, MatrixPtr B)
         exit(EXIT_FAILURE);
     }
     MatrixPtr C = create_matrix(A->m, A->n);
+    
+    CHECK_MATRIX_ALLOC(C);
+
     for (int i = 0; i < A->m * A->n; i++)
         C->data[i] = A->data[i] * B->data[i];
     return C;
@@ -170,4 +178,75 @@ double mat_norm_sq(MatrixPtr A)
         sum += A->data[i] * A->data[i];
 
     return sum;
+}
+
+// replace all zeroes with 1e-6
+void replace_zeroes(MatrixPtr A)
+{
+    int size, i;
+
+    if (A == NULL || A->data == NULL)
+    {
+        return;
+    }
+
+    size = A->m * A->n;
+
+    for (i = 0; i < size; i++)
+    {
+        if (A->data[i] == 0.0)
+        {
+            A->data[i] = 1e-6;
+        }
+    }
+}
+
+// return the vector which is Row_i(X) - Row_j(X)
+MatrixPtr get_row_diff(MatrixPtr X, int i, int j){
+    int size = X->n;
+    MatrixPtr diffVector = create_matrix(1, size);
+    CHECK_MATRIX_ALLOC(diffVector);
+    int k;
+
+    for (k = 0; k<size; k++){
+        diffVector->data[k] = mat_get(X, i, k) - mat_get(X, j, k);
+    }
+    return diffVector;
+}
+// sum all matrix values
+double mat_sum(MatrixPtr A){
+    double sum = 0;
+    int i, size = A->m * A->m;
+    for (i=0; i<size; i++){
+        sum += A->data[i];
+    }
+    return sum;
+}
+// get vector represnting the row of A
+MatrixPtr get_row_vector(MatrixPtr A, int row){
+    int size = A->n, j;
+    MatrixPtr row_vector = create_matrix(1, size);
+
+    CHECK_MATRIX_ALLOC(row_vector);
+
+    for (j=0; j<size; j++){
+        row_vector->data[j] = mat_get(A, row, j);
+    }
+    return row_vector;
+}
+// given mat X, return vector v where vi = sum(Row_i(X))
+MatrixPtr sum_axis_0(MatrixPtr A){
+    int row = A->m;
+    int col = A->n;
+    MatrixPtr sumVector = create_matrix(row, 1);
+
+    
+    MatrixPtr tempRow;
+    int k;
+    for (k = 0; k<row; k++){
+        tempRow = get_row_vector(A, k);
+        sumVector->data[k] = mat_sum(tempRow);
+        free_matrix(tempRow);
+    }
+    return sumVector;
 }

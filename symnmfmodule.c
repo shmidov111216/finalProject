@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #define PY_SSIZE_T_CLEAN
+
 #include <Python.h>
 #include "matrix_util.h"
 
@@ -104,6 +106,8 @@ PyObject *matrix_to_pylist(MatrixPtr mat, int k, int d)
     return outer;
 }
 
+
+
 /* -------- Core Algorithm ---------- */
 
 MatrixPtr updateH(MatrixPtr H, MatrixPtr W)
@@ -115,7 +119,9 @@ MatrixPtr updateH(MatrixPtr H, MatrixPtr W)
     Ht = mat_transpose(H);
     H_Ht = mat_dot(H, Ht);
     H_Ht_H = mat_dot(H_Ht, H);
-
+    // fill H_Ht_H zeroes
+    
+    replace_zeroes(H_Ht_H);
     mat_reciprocal_inplace(H_Ht_H);
     mat_elementwise_prod_inplace(W_H, H_Ht_H);
     mat_scalar_mult_inplace(W_H, beta);
@@ -165,6 +171,57 @@ MatrixPtr getResultH(MatrixPtr H, MatrixPtr W)
     return H;
 }
 
+MatrixPtr getSimilarityMatrix(MatrixPtr X)
+{
+    MatrixPtr A = create_matrix(X->m, X->m);
+
+    if(!A){
+        return NULL;
+    }
+
+    MatrixPtr diffVector;
+    int i, j;
+    double val;
+
+    for (i = 0; i < X->m; i++)
+    {
+        for (j=0; j< X->m: j++){
+            if (i==j){
+                mat_set(A, i, j, 0);
+            }
+            else{
+                diffVector = get_row_diff(X, i, j);
+                val = exp(-0.5 * mat_norm_sq(diffVector));
+                mat_set(A, i, j, val);
+                free_matrix(diffVector);
+            }
+        }
+    }
+    return A;
+}
+
+MatrixPtr getDiagonalDegreeMatrix(MatrixPtr A)
+{
+    MatrixPtr D = create_matrix(A->m, A->m);
+
+    if(!D){
+        return NULL;
+    }
+
+    MatrixPtr sumVector = sum_axis_0(A);
+
+    if(!sum_axis_0){
+        return NULL;
+    }
+
+    int i;
+    for (i = 0; i < A->m; i++){
+        mat_set(D, i, i, mat_get(sumVector, 0, i));
+    }
+    free_matrix(sumVector);
+    return D;
+}
+
 /* -------- Python Wrapper ---------- */
 
 static PyObject *symnmf(PyObject *self, PyObject *args)
@@ -194,6 +251,78 @@ static PyObject *symnmf(PyObject *self, PyObject *args)
 
     free_matrix(res_H);
     return res_H_py;
+}
+
+static PyObject *sym(PyObject *self, PyObject *args)
+{
+    PyObject *X_py, *A_py;
+    int n, d;
+    MatrixPtr X, A;
+
+    /* Parse arguments correctly */
+    if (!PyArg_ParseTuple(args, "Oii", &X_py, &n, &k))
+        return NULL;
+
+    X = convertPyObjToMatrix(X_py);
+
+    if (!X)
+    {
+        return NULL;
+    }
+    // todo
+    A = getSimilarityMatrix(X);
+    A_py = matrix_to_pylist(res_H, n, k);
+
+    free_matrix(A);
+    return A_py;
+}
+
+static PyObject *ddg(PyObject *self, PyObject *args)
+{
+    PyObject *A_py, *D_py;
+    int n;
+    MatrixPtr A, D;
+
+    /* Parse arguments correctly */
+    if (!PyArg_ParseTuple(args, "Oi", &A_py, &n))
+        return NULL;
+
+    A = convertPyObjToMatrix(A_py);
+
+    if (!A)
+    {
+        return NULL;
+    }
+
+    D = getDiagonalDegreeMatrix(A);
+    D_py = matrix_to_pylist(D, n, n);
+
+    free_matrix(D);
+    return D_py;
+}
+
+static PyObject *norm(PyObject *self, PyObject *args)
+{
+    PyObject *D_py, *D_py;
+    int n;
+    MatrixPtr A, D;
+
+    /* Parse arguments correctly */
+    if (!PyArg_ParseTuple(args, "Oi", &A_py, &n))
+        return NULL;
+
+    A = convertPyObjToMatrix(A_py);
+
+    if (!A)
+    {
+        return NULL;
+    }
+
+    D = getDiagonalDegreeMatrix(A);
+    D_py = matrix_to_pylist(D, n, n);
+
+    free_matrix(D);
+    return D_py;
 }
 
 /* -------- Module Definition ---------- */
