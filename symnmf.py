@@ -16,7 +16,7 @@ def get_diagonal_degree_matrix(A : np.ndarray):
     return D
 
 def get_normalized_similarity_matrix(A : np.ndarray, D : np.ndarray):
-    D_inv_sqrt = np.linalg.inv(np.sqrt(D))
+    D_inv_sqrt = np.diag(1.0 / np.sqrt(np.diag(D)))
     W = D_inv_sqrt@A@D_inv_sqrt
     return W
 
@@ -71,38 +71,47 @@ def symnmf_numpy_cstyle(W, H_init, beta=0.5, epsilon=1e-4, max_iter=300):
 
 
     return H
-
+# Ah! Looking at the numbers you just pasted, this is definitely not a diagonal degree matrix.
 def main(*args):
     k = int(args[0])
     goal = args[1]
-    
-    df = pandas.read_csv(args[2])
+    df = pandas.read_csv(args[2], header=None)
+
     X = df.to_numpy()
 
-    A = get_similarity_matrix(X)
+    n = X.shape[0]
+    d = X.shape[1]
+    
+    A = symnmfmodule.sym(X.tolist(), n, d)
+    A_py = get_similarity_matrix(X)
     if goal == 'sym':
         print(A)
         return
     
-    D = get_diagonal_degree_matrix(A)
+    D = symnmfmodule.ddg(A, n)
+    D_py = get_diagonal_degree_matrix(A_py)
+    
     if goal == 'ddg':
         print(D)
-        return 
+        return
     
-    W = get_normalized_similarity_matrix(A,D)
+    W = symnmfmodule.norm(A, D, n)
+    W_py = get_normalized_similarity_matrix(A_py, D_py)
     if goal == 'norm':
         print(W)
         return
     
-    H = init_H(W, k)
+    H = init_H(np.array(W), k)
     H_copy = H.copy()
     W_copy = W.copy()
-    H_res = symnmfmodule.symnmf(H.tolist(),W.tolist(),len(X), k)
+
+    H_res = symnmfmodule.symnmf(H.tolist(),W, n, k)
     print('\n'.join([','.join([f"{x:.4f}" for x in line]) for line in H_res]))
 
     print('***********************************\nnumpy algo\n***********************************')
-    H_res_test = symnmf_numpy_cstyle(W_copy, H_copy)
+    H_res_test = symnmf_numpy_cstyle(W_py, H_copy)
     print('\n'.join([','.join([f"{x:.4f}" for x in line]) for line in H_res_test]))
+
 
 if __name__ == "__main__":
     main(*sys.argv[1:])

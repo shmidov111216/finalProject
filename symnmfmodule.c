@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
 #define PY_SSIZE_T_CLEAN
 
@@ -185,7 +184,7 @@ MatrixPtr getSimilarityMatrix(MatrixPtr X)
 
     for (i = 0; i < X->m; i++)
     {
-        for (j=0; j< X->m: j++){
+        for (j=0; j< X->m; j++){
             if (i==j){
                 mat_set(A, i, j, 0);
             }
@@ -202,24 +201,41 @@ MatrixPtr getSimilarityMatrix(MatrixPtr X)
 
 MatrixPtr getDiagonalDegreeMatrix(MatrixPtr A)
 {
+    int i;
     MatrixPtr D = create_matrix(A->m, A->m);
+    double value;
 
     if(!D){
         return NULL;
     }
-
+    
+    // sumVector is a col vector
     MatrixPtr sumVector = sum_axis_0(A);
 
-    if(!sum_axis_0){
+    if(!sumVector){
         return NULL;
     }
 
-    int i;
-    for (i = 0; i < A->m; i++){
-        mat_set(D, i, i, mat_get(sumVector, 0, i));
+    
+    for (i = 0; i < D->m; i++){
+        value = mat_get(sumVector, i, 0);
+        mat_set(D, i, i, value);
     }
     free_matrix(sumVector);
     return D;
+}
+
+MatrixPtr getNormalizedSimilarityMatrix(MatrixPtr A, MatrixPtr D)
+{
+    MatrixPtr W, tmp;
+    // create D^-1/2
+    diagonal_power_inplace(D, -0.5);
+    tmp = mat_dot(D, A);
+    // check if W is null
+    W = mat_dot(tmp, D);
+    free_matrix(tmp);
+    // check if W is null
+    return W;
 }
 
 /* -------- Python Wrapper ---------- */
@@ -260,7 +276,7 @@ static PyObject *sym(PyObject *self, PyObject *args)
     MatrixPtr X, A;
 
     /* Parse arguments correctly */
-    if (!PyArg_ParseTuple(args, "Oii", &X_py, &n, &k))
+    if (!PyArg_ParseTuple(args, "Oii", &X_py, &n, &d))
         return NULL;
 
     X = convertPyObjToMatrix(X_py);
@@ -271,9 +287,10 @@ static PyObject *sym(PyObject *self, PyObject *args)
     }
     // todo
     A = getSimilarityMatrix(X);
-    A_py = matrix_to_pylist(res_H, n, k);
+    A_py = matrix_to_pylist(A, n, n);
 
     free_matrix(A);
+    free_matrix(X);
     return A_py;
 }
 
@@ -303,26 +320,33 @@ static PyObject *ddg(PyObject *self, PyObject *args)
 
 static PyObject *norm(PyObject *self, PyObject *args)
 {
-    PyObject *D_py, *D_py;
+    PyObject *W_py, *A_py, *D_py;
     int n;
-    MatrixPtr A, D;
+    MatrixPtr W, A, D;
 
     /* Parse arguments correctly */
-    if (!PyArg_ParseTuple(args, "Oi", &A_py, &n))
+    if (!PyArg_ParseTuple(args, "OOi", &A_py, &D_py, &n))
         return NULL;
 
     A = convertPyObjToMatrix(A_py);
+    D = convertPyObjToMatrix(D_py);
 
-    if (!A)
+    if (!D || !A)
     {
+        if (A)
+            free_matrix(A);
+        if (D)
+            free_matrix(D);
         return NULL;
     }
-
-    D = getDiagonalDegreeMatrix(A);
-    D_py = matrix_to_pylist(D, n, n);
-
+    W = getNormalizedSimilarityMatrix(A, D);
+    // TODO maybe free all if function failed
+    W_py = matrix_to_pylist(W, n, n);
+    free_matrix(W);
+    free_matrix(A);
     free_matrix(D);
-    return D_py;
+    // TODO maybe label and W_py=null
+    return W_py;
 }
 
 /* -------- Module Definition ---------- */
@@ -332,6 +356,18 @@ static PyMethodDef symnmfMethods[] = {
      (PyCFunction)symnmf,
      METH_VARARGS,
      PyDoc_STR("Runs SymNMF")},
+    {"sym",
+     (PyCFunction)sym,
+     METH_VARARGS,
+     PyDoc_STR("Runs sym")},
+    {"ddg",
+     (PyCFunction)ddg,
+     METH_VARARGS,
+     PyDoc_STR("Runs ddg")},
+    {"norm",
+     (PyCFunction)norm,
+     METH_VARARGS,
+     PyDoc_STR("Runs norm")},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef symnmfmodule = {

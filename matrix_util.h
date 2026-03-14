@@ -1,14 +1,17 @@
 #ifndef MATRIX_UTIL_H
 #define MATRIX_UTIL_H
+#define SUCCESS 1
+#define FAIL 0
 #define CHECK_MATRIX_ALLOC(x)   \
     do                   \
     {                    \
         if (!(x))        \
-            return NULL; \
+            return FAIL; \
     } while (0)
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 
 // Matrix struct
 typedef struct
@@ -23,7 +26,7 @@ typedef Matrix *MatrixPtr;
 
 // Function prototypes
 MatrixPtr create_matrix(int m, int n); // allocate matrix
-void free_matrix(MatrixPtr A);         // free memory
+int free_matrix(MatrixPtr A);         // free memory
 void print_matrix(MatrixPtr A);        // print
 double mat_get(MatrixPtr A, int i, int j);
 void mat_set(MatrixPtr A, int i, int j, double val);
@@ -42,5 +45,6 @@ double mat_norm_sq(MatrixPtr A); // squared norm
 MatrixPtr get_row_diff(MatrixPtr X, int i, int j);
 double mat_sum(MatrixPtr A);
 MatrixPtr sum_axis_0(MatrixPtr A);
+void diagonal_power_inplace(MatrixPtr A, double power);
 
 #endif

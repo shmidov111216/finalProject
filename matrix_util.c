@@ -2,7 +2,7 @@
 
 MatrixPtr create_matrix(int m, int n)
 {
-    MatrixPtr A = (MatrixPtr)malloc(sizeof(Matrix));
+    MatrixPtr A = (MatrixPtr)calloc(1, sizeof(Matrix));
     if (!A)
     {
         printf("Failed to allocate Matrix struct");
@@ -11,7 +11,7 @@ MatrixPtr create_matrix(int m, int n)
 
     A->m = m;
     A->n = n;
-    A->data = (double *)malloc(m * n*sizeof(double));
+    A->data = (double *)calloc(m, n*sizeof(double));
     if (!A->data)
     {
         printf("Failed to allocate Matrix data");
@@ -21,13 +21,13 @@ MatrixPtr create_matrix(int m, int n)
 
     return A;
 }
-
 // Free memory
-void free_matrix(MatrixPtr A)
+int free_matrix(MatrixPtr A)
 {
     CHECK_MATRIX_ALLOC(A);
     free(A->data);
     free(A);
+    return SUCCESS;
 }
 
 // Print matrix
@@ -46,7 +46,7 @@ double mat_get(MatrixPtr A, int i, int j)
 {
     if (i < 0 || i >= A->m || j < 0 || j >= A->n)
     {
-        fprintf(stderr, "Index out of bounds!\n");
+        fprintf(stderr, "Index out of bounds get!\n");
         exit(EXIT_FAILURE);
     }
     return A->data[i * A->n + j];
@@ -57,7 +57,7 @@ void mat_set(MatrixPtr A, int i, int j, double val)
 {
     if (i < 0 || i >= A->m || j < 0 || j >= A->n)
     {
-        fprintf(stderr, "Index out of bounds!\n");
+        fprintf(stderr, "Index out of bounds set!\n");
         exit(EXIT_FAILURE);
     }
     A->data[i * A->n + j] = val;
@@ -216,7 +216,7 @@ MatrixPtr get_row_diff(MatrixPtr X, int i, int j){
 // sum all matrix values
 double mat_sum(MatrixPtr A){
     double sum = 0;
-    int i, size = A->m * A->m;
+    int i, size = A->m * A->n;
     for (i=0; i<size; i++){
         sum += A->data[i];
     }
@@ -234,19 +234,36 @@ MatrixPtr get_row_vector(MatrixPtr A, int row){
     }
     return row_vector;
 }
+
 // given mat X, return vector v where vi = sum(Row_i(X))
+// return collumn vector
 MatrixPtr sum_axis_0(MatrixPtr A){
     int row = A->m;
-    int col = A->n;
     MatrixPtr sumVector = create_matrix(row, 1);
 
-    
+    CHECK_MATRIX_ALLOC(sumVector);
+
     MatrixPtr tempRow;
     int k;
     for (k = 0; k<row; k++){
         tempRow = get_row_vector(A, k);
+
+        CHECK_MATRIX_ALLOC(tempRow);
+
         sumVector->data[k] = mat_sum(tempRow);
         free_matrix(tempRow);
     }
     return sumVector;
+}
+// power by d each aii in matrix A
+void diagonal_power_inplace(MatrixPtr A, double power)
+{
+    int i;
+    double val;
+    for (i = 0; i < A->m && i < A->n; i++)
+    {
+        val = mat_get(A, i, i);
+        val = pow(val, power);
+        mat_set(A, i, i, val);
+    }
 }
