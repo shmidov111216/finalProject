@@ -27,6 +27,11 @@ def init_H(W : np.ndarray, k):
     H = np.random.uniform(0,2*((m/k)**0.5), (n,k))
     return H
 
+def get_clusters_from_H(H: np.ndarray) -> np.ndarray:
+    # argmax along the row gives the cluster index
+    clusters = np.argmax(H, axis=1)
+    return clusters
+
 def symnmf_numpy_cstyle(W, H_init, beta=0.5, epsilon=1e-4, max_iter=300):
     """
     SymNMF following the C module update order exactly
@@ -71,7 +76,11 @@ def symnmf_numpy_cstyle(W, H_init, beta=0.5, epsilon=1e-4, max_iter=300):
 
 
     return H
-# Ah! Looking at the numbers you just pasted, this is definitely not a diagonal degree matrix.
+
+
+def print_formatted(mat):
+    print('\n'.join([','.join([f"{x:.4f}" for x in line]) for line in mat]))
+
 def main(*args):
     k = int(args[0])
     goal = args[1]
@@ -85,20 +94,20 @@ def main(*args):
     A = symnmfmodule.sym(X.tolist(), n, d)
     A_py = get_similarity_matrix(X)
     if goal == 'sym':
-        print(A)
+        print_formatted(A)
         return
     
     D = symnmfmodule.ddg(A, n)
     D_py = get_diagonal_degree_matrix(A_py)
     
     if goal == 'ddg':
-        print(D)
+        print_formatted(D)
         return
     
     W = symnmfmodule.norm(A, D, n)
     W_py = get_normalized_similarity_matrix(A_py, D_py)
     if goal == 'norm':
-        print(W)
+        print_formatted(W)
         return
     
     H = init_H(np.array(W), k)

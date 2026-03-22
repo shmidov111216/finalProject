@@ -36,7 +36,7 @@ void print_matrix(MatrixPtr A)
     for (int i = 0; i < A->m; i++)
     {
         for (int j = 0; j < A->n; j++)
-            printf("%8.3f ", A->data[i * A->n + j]);
+            printf("%.4f ", A->data[i * A->n + j]);
         printf("\n");
     }
 }

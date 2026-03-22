@@ -1,7 +1,7 @@
 from setuptools import Extension, setup
 
 module = Extension("symnmfmodule", 
-     sources=['symnmfmodule.c', 'matrix_util.c'],
+     sources=['symnmfmodule.c', 'matrix_util.c', 'symnmf.c'],
      include_dirs=['.'],)
 setup(name='symnmfmodule',
      version='1.0',
