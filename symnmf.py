@@ -81,6 +81,41 @@ def symnmf_numpy_cstyle(W, H_init, beta=0.5, epsilon=1e-4, max_iter=300):
 def print_formatted(mat):
     print('\n'.join([','.join([f"{x:.4f}" for x in line]) for line in mat]))
 
+def symnmf_clustering(X: np.ndarray, k: int, use_c_module=False):
+    n, d = X.shape
+
+    # --- Step 1: Similarity matrix ---
+    if use_c_module:
+        A = np.array(symnmfmodule.sym(X.tolist(), n, d))
+    else:
+        A = get_similarity_matrix(X)
+
+    # --- Step 2: Degree matrix ---
+    if use_c_module:
+        D = np.array(symnmfmodule.ddg(A.tolist(), n))
+    else:
+        D = get_diagonal_degree_matrix(A)
+
+    # --- Step 3: Normalized similarity ---
+    if use_c_module:
+        W = np.array(symnmfmodule.norm(A.tolist(), D.tolist(), n))
+    else:
+        W = get_normalized_similarity_matrix(A, D)
+
+    # --- Step 4: Initialize H ---
+    H_init = init_H(W, k)
+
+    # --- Step 5: Run SymNMF ---
+    if use_c_module:
+        H = np.array(symnmfmodule.symnmf(H_init.tolist(), W.tolist(), n, k))
+    else:
+        H = symnmf_numpy_cstyle(W, H_init)
+
+    # --- Step 6: Extract clusters ---
+    clusters = get_clusters_from_H(H)
+
+    return clusters, H
+
 def main(*args):
     k = int(args[0])
     goal = args[1]

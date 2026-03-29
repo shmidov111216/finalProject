@@ -105,6 +105,7 @@ PyObject *matrix_to_pylist(MatrixPtr mat, int k, int d)
 
 static PyObject *symnmf(PyObject *self, PyObject *args)
 {
+    printf("hello from symnmf module!");
     PyObject *H_py, *W_py, *res_H_py;
     int n, k;
     MatrixPtr H, W, res_H;
@@ -115,6 +116,7 @@ static PyObject *symnmf(PyObject *self, PyObject *args)
 
     H = convertPyObjToMatrix(H_py);
     W = convertPyObjToMatrix(W_py);
+    printf("created matrices success!");
 
     if (!H || !W)
     {
@@ -125,9 +127,10 @@ static PyObject *symnmf(PyObject *self, PyObject *args)
         return NULL;
     }
 
+    printf("before algorithm");
     res_H = getResultH(H, W);
     res_H_py = matrix_to_pylist(res_H, n, k);
-
+    printf("after algorithm");
     free_matrix(res_H);
     return res_H_py;
 }

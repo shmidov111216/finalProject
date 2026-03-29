@@ -48,5 +48,6 @@ MatrixPtr get_row_diff(MatrixPtr X, int i, int j);
 double mat_sum(MatrixPtr A);
 MatrixPtr sum_axis_0(MatrixPtr A);
 void diagonal_power_inplace(MatrixPtr A, double power);
+MatrixPtr mat_dot_diagonal_left(MatrixPtr D, MatrixPtr A);
 
 #endif

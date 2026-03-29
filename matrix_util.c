@@ -116,6 +116,7 @@ MatrixPtr mat_dot(MatrixPtr A, MatrixPtr B)
     {
         for (int j = 0; j < B->n; j++)
         {
+            printf("working %d\n", j);
             double sum = 0.0;
             for (int k = 0; k < A->n; k++)
                 sum += A->data[i * A->n + k] * B->data[k * B->n + j];
@@ -266,4 +267,33 @@ void diagonal_power_inplace(MatrixPtr A, double power)
         val = pow(val, power);
         mat_set(A, i, i, val);
     }
+}
+
+MatrixPtr mat_dot_diagonal_left(MatrixPtr D, MatrixPtr A)
+{
+    if (D->n != A->m)
+    {
+        fprintf(stderr, "Error: incompatible dimensions for diagonal dot product.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    MatrixPtr C = create_matrix(A->m, A->n);
+    if (!C)
+        return NULL;
+
+    for (int i = 0; i < A->m; i++)
+    {
+        // Get the diagonal element once per row
+        double d_ii = mat_get(D, i, i);
+
+        // Calculate the starting index for this row in the 1D data array
+        int row_offset = i * A->n;
+
+        for (int j = 0; j < A->n; j++)
+        {
+            // C[i][j] = D[i][i] * A[i][j]
+            C->data[row_offset + j] = d_ii * A->data[row_offset + j];
+        }
+    }
+    return C;
 }
