@@ -151,6 +151,7 @@ MatrixPtr parse_matrix_from_stream(FILE *fp)
     int rows_cap = INIT_CAP;
     int cols = -1;
     int rows = 0;
+    int bufferCnt = 0;
 
     double *buffer = malloc(rows_cap * INIT_CAP * sizeof(double));
     CHECK_MATRIX_ALLOC(buffer);
@@ -195,9 +196,14 @@ MatrixPtr parse_matrix_from_stream(FILE *fp)
     MatrixPtr A = create_matrix(rows, cols);
     CHECK_MATRIX_ALLOC(A);
 
-    for (int i = 0; i < rows * cols; i++)
-        A->data[i] = buffer[i];
-
+    
+    for (int i = 0; i < rows; i++)
+    {
+        for (int j = 0; j < cols; j++)
+        {
+            A->data[i][j] = buffer[bufferCnt++];
+        }
+    }
     free(buffer);
 
     return A;

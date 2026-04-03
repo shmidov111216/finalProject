@@ -16,61 +16,29 @@ static PyObject *symnmf(PyObject *self, PyObject *args);
 /* -------- Conversion Utilities ---------- */
 MatrixPtr convertPyObjToMatrix(PyObject *obj)
 {
-    if (!PyList_Check(obj))
-    {
-        PyErr_SetString(PyExc_TypeError, "Expected a list of lists");
-        return NULL;
-    }
-
-    int N = PyList_Size(obj);
-    if (N == 0)
-    {
-        PyErr_SetString(PyExc_ValueError, "Input list is empty");
-        return NULL;
-    }
-
-    PyObject *first_row = PyList_GetItem(obj, 0);
-    if (!PyList_Check(first_row))
-    {
-        PyErr_SetString(PyExc_TypeError, "Each row must be a list");
-        return NULL;
-    }
-
-    int d = PyList_Size(first_row);
-    if (d == 0)
-    {
-        PyErr_SetString(PyExc_ValueError, "Rows cannot be empty");
-        return NULL;
-    }
+    int N = PyList_GET_SIZE(obj);
+    PyObject *first_row = PyList_GET_ITEM(obj, 0);
+    int d = PyList_GET_SIZE(first_row);
 
     MatrixPtr mat = create_matrix(N, d);
     if (!mat)
-        return NULL; // Exception already set
+        return NULL;
 
     for (int i = 0; i < N; i++)
     {
-        PyObject *row = PyList_GetItem(obj, i);
-        if (!PyList_Check(row) || PyList_Size(row) != d)
-        {
-            free_matrix(mat);
-            PyErr_SetString(PyExc_TypeError, "All rows must have the same length");
-            return NULL;
-        }
+        PyObject *row = PyList_GET_ITEM(obj, i);
+        double *target_row = mat->data[i]; // Get the row pointer once
 
         for (int j = 0; j < d; j++)
         {
-            double val = PyFloat_AsDouble(PyList_GetItem(row, j));
-            if (PyErr_Occurred())
-            { // conversion failed
-                free_matrix(mat);
-                return NULL;
-            }
-            mat_set(mat, i, j, val);
+            // PyList_GET_ITEM is a macro (no function call overhead)
+            // PyFloat_AsDouble is necessary to extract the raw 8-byte double
+            target_row[j] = PyFloat_AsDouble(PyList_GET_ITEM(row, j));
         }
     }
-
     return mat;
 }
+
 PyObject *matrix_to_pylist(MatrixPtr mat, int k, int d)
 {
     int i, j;
@@ -115,7 +83,11 @@ static PyObject *symnmf(PyObject *self, PyObject *args)
         return NULL;
 
     H = convertPyObjToMatrix(H_py);
+    printf("H created\n");
     W = convertPyObjToMatrix(W_py);
+    
+    printf("W created\n");
+    
     printf("created matrices success!\n");
 
     if (!H || !W)

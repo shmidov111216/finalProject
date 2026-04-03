@@ -8,6 +8,7 @@ import subprocess
 import csv
 import os
 from pathlib import Path
+from time import time
 
 def run_analysis(k, input_file):
     """
@@ -15,13 +16,14 @@ def run_analysis(k, input_file):
     Returns (nmf_score, kmeans_score) or (None, None) on error.
     """
     try:
+        start_time = time()
         result = subprocess.run(
             ['python3', 'analysis.py', str(k), input_file],
             capture_output=True,
             text=True,
-            timeout=30
         )
-        
+        end_time = time()
+        total_time = end_time-start_time
         if result.returncode != 0:
             print(f"Warning: analysis.py failed for k={k}, file={input_file}")
             return None, None
@@ -37,7 +39,7 @@ def run_analysis(k, input_file):
             elif line.startswith('kmeans:'):
                 kmeans_score = float(line.split(':')[1].strip())
         
-        return nmf_score, kmeans_score
+        return nmf_score, kmeans_score, total_time
     except Exception as e:
         print(f"Error running analysis.py for k={k}, file={input_file}: {e}")
         return None, None
@@ -67,7 +69,7 @@ def main():
         for k in k_values:
             current += 1
             print(f"[{current}/{total}] Running analysis.py with k={k}, file={input_file}...", end=' ')
-            nmf_score, kmeans_score = run_analysis(k, input_file)
+            nmf_score, kmeans_score, total_time = run_analysis(k, input_file)
             if nmf_score is not None:
                 results.append({
                     'input_file': input_file,
@@ -75,7 +77,7 @@ def main():
                     'nmf_score': nmf_score,
                     'kmeans_score': kmeans_score,
                 })
-                print(f"nmf={nmf_score:.4f}, kmeans={kmeans_score:.4f}")
+                print(f"nmf={nmf_score:.4f}, kmeans={kmeans_score:.4f}, time={total_time}")
             else:
                 print("FAILED")
     
