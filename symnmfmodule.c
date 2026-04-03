@@ -19,7 +19,6 @@ MatrixPtr convertPyObjToMatrix(PyObject *obj)
     int N = PyList_GET_SIZE(obj);
     PyObject *first_row = PyList_GET_ITEM(obj, 0);
     int d = PyList_GET_SIZE(first_row);
-    init_pools();
 
     MatrixPtr mat = create_matrix(N, d, MAIN_POOL);
     CHECK_MATRIX_ALLOC(mat);
@@ -43,7 +42,6 @@ PyObject *matrix_to_pylist(MatrixPtr mat, int k, int d)
 {
     int i, j;
     PyObject *outer = PyList_New(k);
-    init_pools();
 
     if (!outer)
         return NULL;
@@ -93,7 +91,6 @@ static PyObject *symnmf(PyObject *self, PyObject *args)
     
 
     printf("created matrices success!\n");
-    exit(0);
 
     if (!H || !W)
     {

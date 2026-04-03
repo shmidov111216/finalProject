@@ -87,18 +87,21 @@ def symnmf_clustering(X: np.ndarray, k: int, use_c_module=False):
     # --- Step 1: Similarity matrix ---
     if use_c_module:
         A = np.array(symnmfmodule.sym(X.tolist(), n, d))
+        print('sym')
     else:
         A = get_similarity_matrix(X)
 
     # --- Step 2: Degree matrix ---
     if use_c_module:
         D = np.array(symnmfmodule.ddg(A.tolist(), n))
+        print('ddg')
     else:
         D = get_diagonal_degree_matrix(A)
 
     # --- Step 3: Normalized similarity ---
     if use_c_module:
         W = np.array(symnmfmodule.norm(A.tolist(), D.tolist(), n))
+        print('norm')
     else:
         W = get_normalized_similarity_matrix(A, D)
 
