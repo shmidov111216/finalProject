@@ -49,5 +49,6 @@ double mat_sum(MatrixPtr A);
 MatrixPtr sum_axis_0(MatrixPtr A);
 void diagonal_power_inplace(MatrixPtr A, double power);
 MatrixPtr mat_dot_diagonal_left(MatrixPtr D, MatrixPtr A);
+MatrixPtr mat_dot_diagonal_right(MatrixPtr A, MatrixPtr D);
 
 #endif

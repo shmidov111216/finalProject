@@ -48,7 +48,6 @@ MatrixPtr getResultH(MatrixPtr H, MatrixPtr W)
     MatrixPtr H_updated;
     for (t = 0; t < maxIter; t++)
     {
-        printf("iter num: %d", t);
         H_updated = updateH(H, W);
 
         if (checkConvergence(H, H_updated, epsilon))
@@ -129,18 +128,16 @@ MatrixPtr getNormalizedSimilarityMatrix(MatrixPtr A, MatrixPtr D)
 {
     MatrixPtr W, tmp;
     // create D^-1/2
-    printf("\nentering getNormalizedSimilarityMatrix\n");
+    //printf("\nentering getNormalizedSimilarityMatrix\n");
     
     diagonal_power_inplace(D, -0.5);
-    printf("\ndiagonal_power_inplace\n");
+    //printf("\ndiagonal_power_inplace\n");
     
     tmp = mat_dot_diagonal_left(D, A);
-    printf("\nmat_dot_diagonal_left(D, A)\n");
+    //printf("\nmat_dot_diagonal_left(D, A)\n");
     
-    // check if W is null
-    W = mat_dot(tmp, D);
-
-    printf("\nmat_dot(tmp, D)\n");
+    W = mat_dot_diagonal_right(tmp, D);
+    //printf("\nmat_dot(tmp, D)\n");
     free_matrix(tmp);
     // check if W is null
     return W;
@@ -209,15 +206,15 @@ MatrixPtr parse_matrix_from_stream(FILE *fp)
 int main(int argc, char *argv[]){
     char *file_name = argv[2];
     char *goal = argv[1];
-    printf("opening file");
+    //printf("opening file\n");
     
     FILE *file = fopen(file_name, "r");
     
-    printf("before create matrix");
+    //printf("before create matrix\n");
     MatrixPtr X = parse_matrix_from_stream(file);
     
-    printf("created matrix success");
-    MatrixPtr A, D, H;
+    //printf("created matrix success\n");
+    MatrixPtr A, D, W;
 
     A = getSimilarityMatrix(X);
     
@@ -225,13 +222,17 @@ int main(int argc, char *argv[]){
         ;
     // print_matrix(A);
     D = getDiagonalDegreeMatrix(A);
-    
+    /*
     if (strcmp("ddg", goal) == 0)
         print_matrix(D);
-    
-    H = getNormalizedSimilarityMatrix(A, D);
-    
-    if (strcmp("norm", goal) == 0)
-        print_matrix(H);
+    */
 
+    W = getNormalizedSimilarityMatrix(A, D);
+    W = W;
+    /*
+    if (strcmp("norm", goal) == 0)
+        print_matrix(W);
+    */
+
+    //printf("\nSuccess\n");
 }

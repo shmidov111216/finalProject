@@ -10,8 +10,11 @@ def main(*args):
 
     X = df.to_numpy()
     centroids_kmeans = get_kmeans(X, k, formatted=False)
+    print('kmeans numpy successs!\n')
+
     kmeans_cluster_assign = assign_clusters(X, centroids_kmeans)
     symnmf_cluster_assign, H = symnmf_clustering(X, k, use_c_module=True)
+    print('symnmf successs!\n')
 
     score_symnmf = silhouette_score(X, symnmf_cluster_assign)
     score_kmeans = silhouette_score(X, kmeans_cluster_assign)

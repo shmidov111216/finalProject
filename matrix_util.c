@@ -114,9 +114,10 @@ MatrixPtr mat_dot(MatrixPtr A, MatrixPtr B)
 
     for (int i = 0; i < A->m; i++)
     {
+        
         for (int j = 0; j < B->n; j++)
         {
-            printf("working %d\n", j);
+            
             double sum = 0.0;
             for (int k = 0; k < A->n; k++)
                 sum += A->data[i * A->n + k] * B->data[k * B->n + j];
@@ -293,6 +294,59 @@ MatrixPtr mat_dot_diagonal_left(MatrixPtr D, MatrixPtr A)
         {
             // C[i][j] = D[i][i] * A[i][j]
             C->data[row_offset + j] = d_ii * A->data[row_offset + j];
+        }
+    }
+    return C;
+}
+/*
+MatrixPtr mat_dot_diagonal_right(MatrixPtr A, MatrixPtr D)
+{
+    if (D->n != A->m)
+    {
+        fprintf(stderr, "Error: incompatible dimensions for diagonal dot product.\n");
+        exit(EXIT_FAILURE);
+    }
+    double val;
+    MatrixPtr C = create_matrix(A->m, A->n);
+    if (!C)
+        return NULL;
+
+    for (int j = 0; j < A->m; j++)
+    {
+        // Get the diagonal element once per row
+        double d_jj = mat_get(D, j, j);
+
+        for (int i = 0; i < A->n; i++)
+        {
+            // C[i][j] = D[i][i] * A[i][j]
+            val = mat_get(A, i, j) * d_jj;
+            mat_set(C, i, j, val);
+        }
+    }
+    return C;
+}
+
+*/
+
+MatrixPtr mat_dot_diagonal_right(MatrixPtr A, MatrixPtr D)
+{
+    // Check (Standard for square or rectangular)
+    if (A->n != D->m)
+    {
+        fprintf(stderr, "Error: Dimension mismatch\n");
+        exit(1);
+    }
+
+    MatrixPtr C = create_matrix(A->m, A->n);
+
+    for (int i = 0; i < A->m; i++)
+    {
+        int row_offset = i * A->n;
+        for (int j = 0; j < A->n; j++)
+        {
+            // Right multiply: Column j of A is scaled by D[j][j]
+            double d_jj = D->data[j * D->n + j];
+            C->data[row_offset + j] = A->data[row_offset + j] * d_jj;
         }
     }
     return C;
