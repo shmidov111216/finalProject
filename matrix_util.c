@@ -1,8 +1,92 @@
 #include "matrix_util.h"
 
-MatrixPtr create_matrix(int m, int n)
+/* --- MEMORY POOL DEFINITIONS --- */
+/* 1. Define ACTUAL objects, not just pointers, to avoid segfaults */
+static MemoryPool mainPoolObj;
+static MemoryPool tempPoolObj;
+
+/* These pointers now point to the real objects above */
+static MemoryPool *mainPool = &mainPoolObj;
+static MemoryPool *tempPool = &tempPoolObj;
+
+void pool_init(MemoryPool *pool)
 {
-    MatrixPtr A = (MatrixPtr)calloc(1, sizeof(Matrix));
+    if (pool)
+        pool->head = NULL;
+}
+
+/* wrapper for easy use */
+void pool_register_choice(int which_pool, void *ptr){
+    MemoryPool *pool = which_pool == MAIN_POOL ? mainPool : tempPool;
+    pool_register(pool, ptr);
+}
+
+/* 2. Standardized to take the pool pointer directly */
+void *pool_register(MemoryPool *pool, void *ptr)
+{
+    if (!ptr || !pool)
+        return ptr;
+
+    Allocation *node = (Allocation *)malloc(sizeof(Allocation));
+    if (!node)
+    {
+        free_matrix((MatrixPtr)ptr); // Emergency cleanup
+        return NULL;
+    }
+    node->ptr = ptr;
+    node->next = pool->head;
+    pool->head = node;
+    return ptr;
+}
+
+void *pool_alloc(MemoryPool *pool, size_t size)
+{
+    return pool_register(pool, malloc(size));
+}
+
+void *pool_calloc(MemoryPool *pool, size_t num, size_t size)
+{
+    return pool_register(pool, calloc(num, size));
+}
+
+void pool_free_all(int which_pool)
+{
+    MemoryPool *pool = (which_pool == MAIN_POOL) ? mainPool : tempPool;
+    Allocation *current = pool->head;
+    while (current != NULL)
+    {
+        Allocation *temp = current;
+        if (current->ptr)
+        {
+            /* Cast the void* to MatrixPtr so free_matrix knows what to do */
+            free_matrix((MatrixPtr)current->ptr);
+        }
+        current = current->next;
+        free(temp); // USE STANDARD free() for the node itself!
+    }
+    pool->head = NULL;
+}
+
+void init_pools()
+{
+    pool_init(mainPool);
+    pool_init(tempPool);
+}
+/* --- END MEMORY POOL --- */
+
+
+MatrixPtr create_matrix(int m, int n, int which_pool)
+{
+    MemoryPool *pool;
+    MatrixPtr A;
+    if (!which_pool)
+        A = (MatrixPtr)calloc(1, sizeof(Matrix));
+    else
+    {
+        pool = which_pool == MAIN_POOL ? mainPool : tempPool;
+        A = (MatrixPtr)pool_calloc(pool, 1, sizeof(Matrix));
+    }
+    
     if (!A)
     {
         printf("Failed to allocate Matrix struct\n");
@@ -93,9 +177,9 @@ void mat_set(MatrixPtr A, int i, int j, double val)
 }
 
 // Transpose (returns new matrix)
-MatrixPtr mat_transpose(MatrixPtr A)
+MatrixPtr mat_transpose(MatrixPtr A, int which_pool)
 {
-    MatrixPtr T = create_matrix(A->n, A->m);
+    MatrixPtr T = create_matrix(A->n, A->m, which_pool);
     CHECK_MATRIX_ALLOC(T);
 
     for (int i = 0; i < A->m; i++)
@@ -132,14 +216,14 @@ void mat_scalar_mult_inplace(MatrixPtr A, double scalar)
 }
 
 // Dot product
-MatrixPtr mat_dot(MatrixPtr A, MatrixPtr B)
+MatrixPtr mat_dot(MatrixPtr A, MatrixPtr B, int which_pool)
 {
     if (A->n != B->m)
     {
         fprintf(stderr, "Error: incompatible dimensions for dot product.\n");
         exit(EXIT_FAILURE);
     }
-    MatrixPtr C = create_matrix(A->m, B->n);
+    MatrixPtr C = create_matrix(A->m, B->n, which_pool);
     CHECK_MATRIX_ALLOC(C);
 
     for (int i = 0; i < A->m; i++)
@@ -156,14 +240,14 @@ MatrixPtr mat_dot(MatrixPtr A, MatrixPtr B)
 }
 
 // Element-wise multiplication (returns new matrix)
-MatrixPtr mat_elementwise_prod(MatrixPtr A, MatrixPtr B)
+MatrixPtr mat_elementwise_prod(MatrixPtr A, MatrixPtr B, int which_pool)
 {
     if (A->m != B->m || A->n != B->n)
     {
         fprintf(stderr, "Error: dim mismatch for element-wise mult1.\n");
         exit(EXIT_FAILURE);
     }
-    MatrixPtr C = create_matrix(A->m, A->n);
+    MatrixPtr C = create_matrix(A->m, A->n, which_pool);
     CHECK_MATRIX_ALLOC(C);
 
     for (int i = 0; i < A->m; i++)
@@ -229,10 +313,10 @@ void replace_zeroes(MatrixPtr A)
 }
 
 // return the vector which is Row_i(X) - Row_j(X)
-MatrixPtr get_row_diff(MatrixPtr X, int i, int j)
+MatrixPtr get_row_diff(MatrixPtr X, int i, int j, int which_pool)
 {
     int size = X->n;
-    MatrixPtr diffVector = create_matrix(1, size);
+    MatrixPtr diffVector = create_matrix(1, size, which_pool);
     CHECK_MATRIX_ALLOC(diffVector);
 
     for (int k = 0; k < size; k++)
@@ -252,10 +336,11 @@ double mat_sum(MatrixPtr A)
 }
 
 // get vector representing the row of A
-MatrixPtr get_row_vector(MatrixPtr A, int row)
+/*
+MatrixPtr get_row_vector(MatrixPtr A, int row, int which_pool)
 {
     int size = A->n;
-    MatrixPtr row_vector = create_matrix(1, size);
+    MatrixPtr row_vector = create_matrix(1, size, which_pool);
     CHECK_MATRIX_ALLOC(row_vector);
 
     for (int j = 0; j < size; j++)
@@ -263,11 +348,12 @@ MatrixPtr get_row_vector(MatrixPtr A, int row)
 
     return row_vector;
 }
+*/
 
 // return column vector where vi = sum(Row_i(X))
-MatrixPtr sum_axis_0(MatrixPtr A)
+MatrixPtr sum_axis_0(MatrixPtr A, int which_pool)
 {
-    MatrixPtr sumVector = create_matrix(A->m, 1);
+    MatrixPtr sumVector = create_matrix(A->m, 1, which_pool);
     CHECK_MATRIX_ALLOC(sumVector);
 
     for (int i = 0; i < A->m; i++)
@@ -291,7 +377,7 @@ void diagonal_power_inplace(MatrixPtr A, double power)
 }
 
 // Left Dot Diagonal D * A
-MatrixPtr mat_dot_diagonal_left(MatrixPtr D, MatrixPtr A)
+MatrixPtr mat_dot_diagonal_left(MatrixPtr D, MatrixPtr A, int which_pool)
 {
     if (D->m != A->m)
     {
@@ -299,7 +385,7 @@ MatrixPtr mat_dot_diagonal_left(MatrixPtr D, MatrixPtr A)
         exit(EXIT_FAILURE);
     }
 
-    MatrixPtr C = create_matrix(A->m, A->n);
+    MatrixPtr C = create_matrix(A->m, A->n, which_pool);
     if (!C)
         return NULL;
 
@@ -315,7 +401,7 @@ MatrixPtr mat_dot_diagonal_left(MatrixPtr D, MatrixPtr A)
 }
 
 // Right Dot Diagonal A * D
-MatrixPtr mat_dot_diagonal_right(MatrixPtr A, MatrixPtr D)
+MatrixPtr mat_dot_diagonal_right(MatrixPtr A, MatrixPtr D, int which_pool)
 {
     if (A->n != D->m)
     {
@@ -323,7 +409,7 @@ MatrixPtr mat_dot_diagonal_right(MatrixPtr A, MatrixPtr D)
         exit(1);
     }
 
-    MatrixPtr C = create_matrix(A->m, A->n);
+    MatrixPtr C = create_matrix(A->m, A->n, which_pool);
     if (!C)
         return NULL;
 

@@ -9,11 +9,18 @@ def main(*args):
     df = pandas.read_csv(args[1], header=None)
 
     X = df.to_numpy()
+    
     centroids_kmeans = get_kmeans(X, k, formatted=False)
     print('kmeans numpy successs!\n')
 
     kmeans_cluster_assign = assign_clusters(X, centroids_kmeans)
-    symnmf_cluster_assign, H = symnmf_clustering(X, k, use_c_module=True)
+
+    try:
+        symnmf_cluster_assign, H = symnmf_clustering(X, k, use_c_module=True)
+    except Exception as e:
+        print(e)
+        exit(1)
+        
     print('symnmf successs!\n')
 
     score_symnmf = silhouette_score(X, symnmf_cluster_assign)

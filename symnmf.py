@@ -149,7 +149,14 @@ def main(*args):
     H_copy = H.copy()
     W_copy = W.copy()
 
-    H_res = symnmfmodule.symnmf(H.tolist(),W, n, k)
+    try:
+        H_res = symnmfmodule.symnmf(H.tolist(),W, n, k)
+    
+    except Exception as e:
+        print(e)
+        exit(1)
+    
+    
     print('\n'.join([','.join([f"{x:.4f}" for x in line]) for line in H_res]))
 
     print('***********************************\nnumpy algo\n***********************************')
@@ -159,3 +166,31 @@ def main(*args):
 
 if __name__ == "__main__":
     main(*sys.argv[1:])
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt
+#add try and execpt

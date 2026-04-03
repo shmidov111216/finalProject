@@ -7,10 +7,10 @@ MatrixPtr updateH(MatrixPtr H, MatrixPtr W)
     double beta = 0.5;
     MatrixPtr H_updated, W_H, Ht, H_Ht, H_Ht_H;
 
-    W_H = mat_dot(W, H);
-    Ht = mat_transpose(H);
-    H_Ht = mat_dot(H, Ht);
-    H_Ht_H = mat_dot(H_Ht, H);
+    W_H = mat_dot(W, H, TEMP_POOL);
+    Ht = mat_transpose(H, TEMP_POOL);
+    H_Ht = mat_dot(H, Ht, TEMP_POOL);
+    H_Ht_H = mat_dot(H_Ht, H, TEMP_POOL);
     // fill H_Ht_H zeroes
 
     replace_zeroes(H_Ht_H);
@@ -19,12 +19,9 @@ MatrixPtr updateH(MatrixPtr H, MatrixPtr W)
     mat_scalar_mult_inplace(W_H, beta);
     mat_add_scalar_inplace(W_H, 1 - beta);
 
-    H_updated = mat_elementwise_prod(H, W_H);
+    H_updated = mat_elementwise_prod(H, W_H, REGULAR_ALLOC);
 
-    free_matrix(W_H);
-    free_matrix(Ht);
-    free_matrix(H_Ht);
-    free_matrix(H_Ht_H);
+    pool_free_all(TEMP_POOL);
 
     return H_updated;
 }
@@ -50,9 +47,13 @@ MatrixPtr getResultH(MatrixPtr H, MatrixPtr W)
     {
         H_updated = updateH(H, W);
 
+        if (!H_updated)
+            return NULL;
+
         if (checkConvergence(H, H_updated, epsilon))
         {
             free_matrix(H);
+            pool_register_choice(MAIN_POOL, H_updated);
             return H_updated;
         }
 
@@ -60,12 +61,13 @@ MatrixPtr getResultH(MatrixPtr H, MatrixPtr W)
         H = H_updated;
     }
 
+    pool_register_choice(MAIN_POOL, H);
     return H;
 }
 
 MatrixPtr getSimilarityMatrix(MatrixPtr X)
 {
-    MatrixPtr A = create_matrix(X->m, X->m);
+    MatrixPtr A = create_matrix(X->m, X->m, MAIN_POOL);
 
     if (!A)
     {
@@ -86,20 +88,21 @@ MatrixPtr getSimilarityMatrix(MatrixPtr X)
             }
             else
             {
-                diffVector = get_row_diff(X, i, j);
+                diffVector = get_row_diff(X, i, j, TEMP_POOL);
                 val = exp(-0.5 * mat_norm_sq(diffVector));
                 mat_set(A, i, j, val);
-                free_matrix(diffVector);
+                
             }
         }
     }
+    pool_free_all(TEMP_POOL);
     return A;
 }
 
 MatrixPtr getDiagonalDegreeMatrix(MatrixPtr A)
 {
     int i;
-    MatrixPtr D = create_matrix(A->m, A->m);
+    MatrixPtr D = create_matrix(A->m, A->m, MAIN_POOL);
     double value;
 
     if (!D)
@@ -108,7 +111,7 @@ MatrixPtr getDiagonalDegreeMatrix(MatrixPtr A)
     }
 
     // sumVector is a col vector
-    MatrixPtr sumVector = sum_axis_0(A);
+    MatrixPtr sumVector = sum_axis_0(A, TEMP_POOL);
 
     if (!sumVector)
     {
@@ -120,7 +123,7 @@ MatrixPtr getDiagonalDegreeMatrix(MatrixPtr A)
         value = mat_get(sumVector, i, 0);
         mat_set(D, i, i, value);
     }
-    free_matrix(sumVector);
+    pool_free_all(TEMP_POOL);
     return D;
 }
 
@@ -133,13 +136,13 @@ MatrixPtr getNormalizedSimilarityMatrix(MatrixPtr A, MatrixPtr D)
     diagonal_power_inplace(D, -0.5);
     //printf("\ndiagonal_power_inplace\n");
     
-    tmp = mat_dot_diagonal_left(D, A);
+    tmp = mat_dot_diagonal_left(D, A, TEMP_POOL);
     //printf("\nmat_dot_diagonal_left(D, A)\n");
     
-    W = mat_dot_diagonal_right(tmp, D);
+    W = mat_dot_diagonal_right(tmp, D, MAIN_POOL);
     //printf("\nmat_dot(tmp, D)\n");
-    free_matrix(tmp);
-    // check if W is null
+
+    pool_free_all(TEMP_POOL);
     return W;
 }
 
@@ -193,20 +196,20 @@ MatrixPtr parse_matrix_from_stream(FILE *fp)
 
     free(line);
 
-    MatrixPtr A = create_matrix(rows, cols);
-    CHECK_MATRIX_ALLOC(A);
+    MatrixPtr X = create_matrix(rows, cols, MAIN_POOL);
+    CHECK_MATRIX_ALLOC(X);
 
     
     for (int i = 0; i < rows; i++)
     {
         for (int j = 0; j < cols; j++)
         {
-            A->data[i][j] = buffer[bufferCnt++];
+            X->data[i][j] = buffer[bufferCnt++];
         }
     }
     free(buffer);
 
-    return A;
+    return X;
 }
 
 int main(int argc, char *argv[]){
@@ -215,30 +218,39 @@ int main(int argc, char *argv[]){
     //printf("opening file\n");
     
     FILE *file = fopen(file_name, "r");
-    
-    //printf("before create matrix\n");
+    init_pools();
+
     MatrixPtr X = parse_matrix_from_stream(file);
-    
-    //printf("created matrix success\n");
+    if (!X)
+    {
+        FREE_AND_EXIT();
+    }
+
     MatrixPtr A, D, W;
 
     A = getSimilarityMatrix(X);
-    
+    if (!A){
+        FREE_AND_EXIT();
+    }
+
     if (strcmp("sym", goal) == 0)
-        ;
-    // print_matrix(A);
+        print_matrix(A);
+    
     D = getDiagonalDegreeMatrix(A);
-    /*
+    if (!D)
+    {
+        FREE_AND_EXIT();
+    }
+
     if (strcmp("ddg", goal) == 0)
         print_matrix(D);
-    */
-
+    
     W = getNormalizedSimilarityMatrix(A, D);
-    W = W;
-    /*
+    if (!W){
+        FREE_AND_EXIT();
+    }
+
     if (strcmp("norm", goal) == 0)
         print_matrix(W);
-    */
-
-    //printf("\nSuccess\n");
+    
 }

@@ -19,10 +19,10 @@ MatrixPtr convertPyObjToMatrix(PyObject *obj)
     int N = PyList_GET_SIZE(obj);
     PyObject *first_row = PyList_GET_ITEM(obj, 0);
     int d = PyList_GET_SIZE(first_row);
+    init_pools();
 
-    MatrixPtr mat = create_matrix(N, d);
-    if (!mat)
-        return NULL;
+    MatrixPtr mat = create_matrix(N, d, MAIN_POOL);
+    CHECK_MATRIX_ALLOC(mat);
 
     for (int i = 0; i < N; i++)
     {
@@ -43,6 +43,8 @@ PyObject *matrix_to_pylist(MatrixPtr mat, int k, int d)
 {
     int i, j;
     PyObject *outer = PyList_New(k);
+    init_pools();
+
     if (!outer)
         return NULL;
 
@@ -77,7 +79,8 @@ static PyObject *symnmf(PyObject *self, PyObject *args)
     PyObject *H_py, *W_py, *res_H_py;
     int n, k;
     MatrixPtr H, W, res_H;
-    
+    init_pools();
+
     /* Parse arguments correctly */
     if (!PyArg_ParseTuple(args, "OOii", &H_py, &W_py, &n, &k))
         return NULL;
@@ -88,22 +91,33 @@ static PyObject *symnmf(PyObject *self, PyObject *args)
     
     printf("W created\n");
     
+
     printf("created matrices success!\n");
+    exit(0);
 
     if (!H || !W)
     {
-        if (H)
-            free_matrix(H);
-        if (W)
-            free_matrix(W);
-        return NULL;
+        FREE_AND_EXIT();
     }
 
     printf("before algorithm\n");
+    
     res_H = getResultH(H, W);
+    if (!H)
+    {
+        FREE_AND_EXIT();
+    }
+
     res_H_py = matrix_to_pylist(res_H, n, k);
+    if (!res_H_py)
+    {
+        FREE_AND_EXIT();
+    }
+    
     printf("after algorithm\n");
-    free_matrix(res_H);
+
+    pool_free_all(MAIN_POOL);
+    pool_free_all(TEMP_POOL);
     return res_H_py;
 }
 
@@ -113,6 +127,8 @@ static PyObject *sym(PyObject *self, PyObject *args)
     int n, d;
     MatrixPtr X, A;
 
+    init_pools();
+
     /* Parse arguments correctly */
     if (!PyArg_ParseTuple(args, "Oii", &X_py, &n, &d))
         return NULL;
@@ -121,14 +137,25 @@ static PyObject *sym(PyObject *self, PyObject *args)
 
     if (!X)
     {
-        return NULL;
+        FREE_AND_EXIT();
     }
     // todo
     A = getSimilarityMatrix(X);
-    A_py = matrix_to_pylist(A, n, n);
 
-    free_matrix(A);
-    free_matrix(X);
+    if (!A)
+    {
+        FREE_AND_EXIT();
+    }
+
+    A_py = matrix_to_pylist(A, n, n);
+    
+    if (!A_py)
+    {
+        FREE_AND_EXIT();
+    }
+
+    pool_free_all(TEMP_POOL);
+    pool_free_all(MAIN_POOL);
     return A_py;
 }
 
@@ -137,6 +164,7 @@ static PyObject *ddg(PyObject *self, PyObject *args)
     PyObject *A_py, *D_py;
     int n;
     MatrixPtr A, D;
+    init_pools();
 
     /* Parse arguments correctly */
     if (!PyArg_ParseTuple(args, "Oi", &A_py, &n))
@@ -146,13 +174,24 @@ static PyObject *ddg(PyObject *self, PyObject *args)
 
     if (!A)
     {
-        return NULL;
+        FREE_AND_EXIT();
     }
 
     D = getDiagonalDegreeMatrix(A);
+
+    if (!D){
+        FREE_AND_EXIT();
+    }
+
     D_py = matrix_to_pylist(D, n, n);
 
-    free_matrix(D);
+    if (!D_py){
+        FREE_AND_EXIT();
+    }
+
+    pool_free_all(TEMP_POOL);
+    pool_free_all(MAIN_POOL);
+    
     return D_py;
 }
 
@@ -161,7 +200,8 @@ static PyObject *norm(PyObject *self, PyObject *args)
     PyObject *W_py, *A_py, *D_py;
     int n;
     MatrixPtr W, A, D;
-
+    init_pools();
+    
     /* Parse arguments correctly */
     if (!PyArg_ParseTuple(args, "OOi", &A_py, &D_py, &n))
         return NULL;
@@ -169,21 +209,24 @@ static PyObject *norm(PyObject *self, PyObject *args)
     A = convertPyObjToMatrix(A_py);
     D = convertPyObjToMatrix(D_py);
 
-    if (!D || !A)
-    {
-        if (A)
-            free_matrix(A);
-        if (D)
-            free_matrix(D);
-        return NULL;
+    if (!D || !A){
+        FREE_AND_EXIT();
     }
     W = getNormalizedSimilarityMatrix(A, D);
-    // TODO maybe free all if function failed
+
+    if (!W){
+        FREE_AND_EXIT();
+    }
+
     W_py = matrix_to_pylist(W, n, n);
-    free_matrix(W);
-    free_matrix(A);
-    free_matrix(D);
-    // TODO maybe label and W_py=null
+    
+    if (!W_py){
+        FREE_AND_EXIT();
+    }
+
+    pool_free_all(TEMP_POOL);
+    pool_free_all(MAIN_POOL);
+    
     return W_py;
 }
 
