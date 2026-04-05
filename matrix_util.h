@@ -15,9 +15,12 @@
 
 #ifdef PYTHON_BUILD
 #define ERROR_PRINT() ((void)0)
+#define ERROR_CODE ((void *)(0))
 #else
 #define ERROR_PRINT() printf("An Error Has Occurred C\n")
+#define ERROR_CODE 1
 #endif
+
 
 #define REGULAR_ALLOC 0
 #define MAIN_POOL 1
@@ -31,7 +34,6 @@
         if (!(ptr))             \
             return NULL;        \
     } while (0)
-
 #define CHECK_FREE_AND_EXIT(ptr)      \
     do                                \
     {                                 \
@@ -40,7 +42,7 @@
             ERROR_PRINT();            \
             pool_free_all(MAIN_POOL); \
             pool_free_all(TEMP_POOL); \
-            return 0;                 \
+            return ERROR_CODE;        \
         }                             \
     } while (0)
 

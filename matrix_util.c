@@ -1,13 +1,5 @@
 #include "matrix_util.h"
 
-#ifdef PYTHON_BUILD
-#pragma message "PYTHON_BUILD IS ACTIVE"
-#define ERROR_PRINT() printf("An Error Has Occured C")
-#else
-#pragma message "PYTHON_BUILD IS NOT ACTIVE"
-#define ERROR_PRINT()
-#endif
-
 
 /* --- MEMORY POOL DEFINITIONS --- */
 /* 1. Define ACTUAL objects, not just pointers, to avoid segfaults */

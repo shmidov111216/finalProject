@@ -108,7 +108,7 @@ MatrixPtr getDiagonalDegreeMatrix(MatrixPtr A)
     MatrixPtr D = create_matrix(A->m, A->m, MAIN_POOL);
     //D = NULL;
     double value;
-
+    D = NULL;
     CHECK_MATRIX_ALLOC(D);
 
     // sumVector is a col vector
@@ -207,10 +207,11 @@ MatrixPtr parse_matrix_from_stream(FILE *fp)
     return X;
 }
 
+#ifndef PYTHON_BUILD
 int main(int argc, char *argv[]){
     char *file_name = argv[2];
     char *goal = argv[1];
-    //goal = goal;
+    goal = goal;
     FILE *file = fopen(file_name, "r");
     init_pools();
 
@@ -240,3 +241,4 @@ int main(int argc, char *argv[]){
         print_matrix(W);
     
 }
+#endif

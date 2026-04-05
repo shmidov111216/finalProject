@@ -76,7 +76,7 @@ static PyObject *symnmf(PyObject *self, PyObject *args)
     int n, k;
     MatrixPtr H, W, res_H;
     init_pools();
-
+    n = n;
     /* Parse arguments correctly */
     if (!PyArg_ParseTuple(args, "OOii", &H_py, &W_py, &n, &k))
         return NULL;
