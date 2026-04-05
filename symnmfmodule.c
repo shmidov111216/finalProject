@@ -91,7 +91,6 @@ static PyObject *symnmf(PyObject *self, PyObject *args)
     
 
     printf("created matrices success!\n");
-    W = NULL;
     CHECK_FREE_AND_EXIT(W);
 
     printf("before algorithm\n");

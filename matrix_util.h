@@ -10,6 +10,15 @@
 #define FAIL 0
 #define SUCCESS 1
 
+#define IN_PYTHON 0
+#define IN_C 1
+
+#ifdef PYTHON_BUILD
+#define ERROR_PRINT() ((void)0)
+#else
+#define ERROR_PRINT() printf("An Error Has Occurred C\n")
+#endif
+
 #define REGULAR_ALLOC 0
 #define MAIN_POOL 1
 #define TEMP_POOL 2
@@ -22,7 +31,19 @@
         if (!(ptr))             \
             return NULL;        \
     } while (0)
-    
+
+#define CHECK_FREE_AND_EXIT(ptr)      \
+    do                                \
+    {                                 \
+        if (!(ptr))                   \
+        {                             \
+            ERROR_PRINT();            \
+            pool_free_all(MAIN_POOL); \
+            pool_free_all(TEMP_POOL); \
+            return 0;                 \
+        }                             \
+    } while (0)
+
 // Matrix struct
 typedef struct
 {

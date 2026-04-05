@@ -106,7 +106,7 @@ MatrixPtr getDiagonalDegreeMatrix(MatrixPtr A)
 {
     int i;
     MatrixPtr D = create_matrix(A->m, A->m, MAIN_POOL);
-    D = NULL;
+    //D = NULL;
     double value;
 
     CHECK_MATRIX_ALLOC(D);
@@ -129,6 +129,7 @@ MatrixPtr getNormalizedSimilarityMatrix(MatrixPtr A, MatrixPtr D)
     MatrixPtr W, tmp;
     diagonal_power_inplace(D, -0.5);
     //printf("\ndiagonal_power_inplace\n");
+    //printf("\neeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n");
     
     tmp = mat_dot_diagonal_left(D, A, TEMP_POOL);
     //printf("\nmat_dot_diagonal_left(D, A)\n");
@@ -212,6 +213,8 @@ int main(int argc, char *argv[]){
     //goal = goal;
     FILE *file = fopen(file_name, "r");
     init_pools();
+
+    printf("Hello not ok ");
 
     MatrixPtr X = parse_matrix_from_stream(file);
     CHECK_FREE_AND_EXIT(X);
