@@ -1,5 +1,12 @@
+
 #ifndef MATRIX_UTIL_H
 #define MATRIX_UTIL_H
+
+#include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
 #define FAIL 0
 #define SUCCESS 1
 
@@ -7,34 +14,21 @@
 #define MAIN_POOL 1
 #define TEMP_POOL 2
 
+#define MAT(A,i,j) ((A)->data[(size_t)(i) * (A)->n + (j)])
 
-#define CHECK_MATRIX_ALLOC(x) \
-    do                        \
-    {                         \
-        if (!(x))             \
-            return NULL;      \
+#define CHECK_MATRIX_ALLOC(ptr) \
+    do                          \
+    {                           \
+        if (!(ptr))             \
+            return NULL;        \
     } while (0)
-
-#define FREE_AND_EXIT()      \
-    do                            \
-    {                             \
-        printf("An Error Has Occurred");  \
-        pool_free_all(MAIN_POOL); \
-        pool_free_all(TEMP_POOL); \
-        return 0;                 \
-    } while (0)
-
-#include <math.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
+    
 // Matrix struct
 typedef struct
 {
     int m;         // rows
     int n;         // columns
-    double **data; // Array of row pointers (Dynamic chunking)
+    double *data; //  contiguous m*n block
 } Matrix;
 
 typedef struct Allocation

@@ -77,51 +77,79 @@ void init_pools()
 
 MatrixPtr create_matrix(int m, int n, int which_pool)
 {
-    MemoryPool *pool;
+    // MemoryPool *pool;
+    // MatrixPtr A;
+    // if (!which_pool)
+    //     A = (MatrixPtr)calloc(1, sizeof(Matrix));
+    // else
+    // {
+    //     pool = which_pool == MAIN_POOL ? mainPool : tempPool;
+    //     A = (MatrixPtr)pool_calloc(pool, 1, sizeof(Matrix));
+    // }
+    
+    // if (!A)
+    // {
+    //     printf("Failed to allocate Matrix struct\n");
+    //     return NULL;
+    // }
+
+    // A->m = m;
+    // A->n = n;
+
+    // // Allocate array of row pointers
+    // A->data = (double **)calloc(m, sizeof(double *));
+    // if (!A->data)
+    // {
+    //     printf("Failed to allocate Matrix row pointers\n");
+    //     free(A);
+    //     return NULL;
+    // }
+
+    // // Allocate each row independently (prevents massive contiguous block failure)
+    // for (int i = 0; i < m; i++)
+    // {
+    //     A->data[i] = (double *)calloc(n, sizeof(double));
+    //     if (!A->data[i])
+    //     {
+    //         // If allocation fails halfway, free previously allocated rows to prevent leak
+    //         printf("Failed to allocate Matrix row %d\n", i);
+    //         for (int j = 0; j < i; j++)
+    //         {
+    //             free(A->data[j]);
+    //         }
+    //         free(A->data);
+    //         free(A);
+    //         return NULL;
+    //     }
+    // }
+
+    // return A;
+
+
+
+    MemoryPool *pool = NULL;
     MatrixPtr A;
-    if (!which_pool)
-        A = (MatrixPtr)calloc(1, sizeof(Matrix));
+
+    size_t total_size = sizeof(Matrix) + (size_t)m * n * sizeof(double);
+
+    if (which_pool == REGULAR_ALLOC)
+    {
+        A = (MatrixPtr)calloc(1, total_size);
+    }
     else
     {
-        pool = which_pool == MAIN_POOL ? mainPool : tempPool;
-        A = (MatrixPtr)pool_calloc(pool, 1, sizeof(Matrix));
+        pool = (which_pool == MAIN_POOL) ? mainPool : tempPool;
+        A = (MatrixPtr)pool_calloc(pool, 1, total_size);
     }
-    
+
     if (!A)
-    {
-        printf("Failed to allocate Matrix struct\n");
         return NULL;
-    }
 
     A->m = m;
     A->n = n;
 
-    // Allocate array of row pointers
-    A->data = (double **)calloc(m, sizeof(double *));
-    if (!A->data)
-    {
-        printf("Failed to allocate Matrix row pointers\n");
-        free(A);
-        return NULL;
-    }
-
-    // Allocate each row independently (prevents massive contiguous block failure)
-    for (int i = 0; i < m; i++)
-    {
-        A->data[i] = (double *)calloc(n, sizeof(double));
-        if (!A->data[i])
-        {
-            // If allocation fails halfway, free previously allocated rows to prevent leak
-            printf("Failed to allocate Matrix row %d\n", i);
-            for (int j = 0; j < i; j++)
-            {
-                free(A->data[j]);
-            }
-            free(A->data);
-            free(A);
-            return NULL;
-        }
-    }
+    /* data lives immediately after the struct */
+    A->data = (double *)(A + 1);
 
     return A;
 }
@@ -129,16 +157,22 @@ MatrixPtr create_matrix(int m, int n, int which_pool)
 // Free memory
 int free_matrix(MatrixPtr A)
 {
+    // if (!A)
+    //     return FAIL;
+
+    // // Free each row first
+    // for (int i = 0; i < A->m; i++)
+    // {
+    //     free(A->data[i]);
+    // }
+    // // Free the array of pointers, then the struct
+    // free(A->data);
+    // free(A);
+    // return SUCCESS;
+
     if (!A)
         return FAIL;
 
-    // Free each row first
-    for (int i = 0; i < A->m; i++)
-    {
-        free(A->data[i]);
-    }
-    // Free the array of pointers, then the struct
-    free(A->data);
     free(A);
     return SUCCESS;
 }
@@ -149,7 +183,7 @@ void print_matrix(MatrixPtr A)
     for (int i = 0; i < A->m; i++)
     {
         for (int j = 0; j < A->n; j++)
-            printf("%.4f ", A->data[i][j]);
+            printf("%.4f ", MAT(A, i, j));
         printf("\n");
     }
 }
@@ -162,7 +196,7 @@ double mat_get(MatrixPtr A, int i, int j)
         fprintf(stderr, "Index out of bounds get!\n");
         exit(EXIT_FAILURE);
     }
-    return A->data[i][j];
+    return MAT(A, i, j);
 }
 
 // Set element
@@ -173,7 +207,7 @@ void mat_set(MatrixPtr A, int i, int j, double val)
         fprintf(stderr, "Index out of bounds set!\n");
         exit(EXIT_FAILURE);
     }
-    A->data[i][j] = val;
+    MAT(A, i, j) = val;
 }
 
 // Transpose (returns new matrix)
@@ -184,7 +218,7 @@ MatrixPtr mat_transpose(MatrixPtr A, int which_pool)
 
     for (int i = 0; i < A->m; i++)
         for (int j = 0; j < A->n; j++)
-            T->data[j][i] = A->data[i][j];
+            MAT(T, j, i) = MAT(A, i, j);
     return T;
 }
 
@@ -192,37 +226,33 @@ MatrixPtr mat_transpose(MatrixPtr A, int which_pool)
 void mat_add_inplace(MatrixPtr A, MatrixPtr B)
 {
     if (A->m != B->m || A->n != B->n)
-    {
-        fprintf(stderr, "Error: dimensions do not match for addition.\n");
         exit(EXIT_FAILURE);
-    }
-    for (int i = 0; i < A->m; i++)
-        for (int j = 0; j < A->n; j++)
-            A->data[i][j] += B->data[i][j];
+
+    size_t size = (size_t)A->m * A->n;
+    for (size_t k = 0; k < size; k++)
+        A->data[k] += B->data[k];
 }
 
 void mat_add_scalar_inplace(MatrixPtr A, double scalar)
 {
     for (int i = 0; i < A->m; i++)
         for (int j = 0; j < A->n; j++)
-            A->data[i][j] += scalar;
+            MAT(A, i, j) += scalar;
 }
 
 void mat_scalar_mult_inplace(MatrixPtr A, double scalar)
 {
     for (int i = 0; i < A->m; i++)
         for (int j = 0; j < A->n; j++)
-            A->data[i][j] *= scalar;
+            MAT(A, i, j) *= scalar;
 }
 
 // Dot product
 MatrixPtr mat_dot(MatrixPtr A, MatrixPtr B, int which_pool)
 {
     if (A->n != B->m)
-    {
-        fprintf(stderr, "Error: incompatible dimensions for dot product.\n");
         exit(EXIT_FAILURE);
-    }
+
     MatrixPtr C = create_matrix(A->m, B->n, which_pool);
     CHECK_MATRIX_ALLOC(C);
 
@@ -232,8 +262,9 @@ MatrixPtr mat_dot(MatrixPtr A, MatrixPtr B, int which_pool)
         {
             double sum = 0.0;
             for (int k = 0; k < A->n; k++)
-                sum += A->data[i][k] * B->data[k][j];
-            C->data[i][j] = sum;
+                sum += MAT(A,i,k) * MAT(B,k,j);
+
+            MAT(C,i,j) = sum;
         }
     }
     return C;
@@ -252,7 +283,7 @@ MatrixPtr mat_elementwise_prod(MatrixPtr A, MatrixPtr B, int which_pool)
 
     for (int i = 0; i < A->m; i++)
         for (int j = 0; j < A->n; j++)
-            C->data[i][j] = A->data[i][j] * B->data[i][j];
+            MAT(C, i, j) = MAT(A, i, j) * MAT(B, i, j);
     return C;
 }
 
@@ -266,7 +297,7 @@ void mat_elementwise_prod_inplace(MatrixPtr A, MatrixPtr B)
     }
     for (int i = 0; i < A->m; i++)
         for (int j = 0; j < A->n; j++)
-            A->data[i][j] *= B->data[i][j];
+            MAT(A, i, j) *= MAT(B, i, j);
 }
 
 // In-place reciprocal
@@ -276,12 +307,12 @@ void mat_reciprocal_inplace(MatrixPtr A)
     {
         for (int j = 0; j < A->n; j++)
         {
-            if (A->data[i][j] == 0.0)
+            if (MAT(A, i, j) == 0.0)
             {
                 fprintf(stderr, "Error: div by zero at [%d][%d].\n", i, j);
                 exit(EXIT_FAILURE);
             }
-            A->data[i][j] = 1.0 / A->data[i][j];
+            MAT(A, i, j) = 1.0 / MAT(A, i, j);
         }
     }
 }
@@ -292,7 +323,7 @@ double mat_norm_sq(MatrixPtr A)
     double sum = 0.0;
     for (int i = 0; i < A->m; i++)
         for (int j = 0; j < A->n; j++)
-            sum += A->data[i][j] * A->data[i][j];
+            sum += MAT(A, i, j) * MAT(A, i, j);
     return sum;
 }
 
@@ -306,8 +337,8 @@ void replace_zeroes(MatrixPtr A)
     {
         for (int j = 0; j < A->n; j++)
         {
-            if (A->data[i][j] == 0.0)
-                A->data[i][j] = 1e-6;
+            if (MAT(A, i, j) == 0.0)
+                MAT(A, i, j) = 1e-6;
         }
     }
 }
@@ -320,18 +351,17 @@ MatrixPtr get_row_diff(MatrixPtr X, int i, int j, int which_pool)
     CHECK_MATRIX_ALLOC(diffVector);
 
     for (int k = 0; k < size; k++)
-        diffVector->data[0][k] = X->data[i][k] - X->data[j][k];
+        MAT(diffVector, 0, k) = MAT(X, i, k) - MAT(X, j, k);
 
     return diffVector;
 }
-
 // sum all matrix values
 double mat_sum(MatrixPtr A)
 {
     double sum = 0;
     for (int i = 0; i < A->m; i++)
         for (int j = 0; j < A->n; j++)
-            sum += A->data[i][j];
+            sum += MAT(A, i, j);
     return sum;
 }
 
@@ -358,11 +388,11 @@ MatrixPtr sum_axis_0(MatrixPtr A, int which_pool)
 
     for (int i = 0; i < A->m; i++)
     {
-        double row_sum = 0;
+        double row_sum = 0.0;
         for (int j = 0; j < A->n; j++)
-            row_sum += A->data[i][j];
+            row_sum += MAT(A, i, j);
 
-        sumVector->data[i][0] = row_sum;
+        MAT(sumVector, i, 0) = row_sum;
     }
     return sumVector;
 }
@@ -370,10 +400,9 @@ MatrixPtr sum_axis_0(MatrixPtr A, int which_pool)
 // power by d each aii in matrix A
 void diagonal_power_inplace(MatrixPtr A, double power)
 {
-    for (int i = 0; i < A->m && i < A->n; i++)
-    {
-        A->data[i][i] = pow(A->data[i][i], power);
-    }
+    int limit = (A->m < A->n) ? A->m : A->n;
+    for (int i = 0; i < limit; i++)
+        MAT(A, i, i) = pow(MAT(A, i, i), power);
 }
 
 // Left Dot Diagonal D * A
@@ -391,10 +420,10 @@ MatrixPtr mat_dot_diagonal_left(MatrixPtr D, MatrixPtr A, int which_pool)
 
     for (int i = 0; i < A->m; i++)
     {
-        double d_ii = D->data[i][i];
+        double d_ii = MAT(D, i, i);
         for (int j = 0; j < A->n; j++)
         {
-            C->data[i][j] = d_ii * A->data[i][j];
+            MAT(C, i, j) = d_ii * MAT(A, i, j);
         }
     }
     return C;
@@ -417,8 +446,8 @@ MatrixPtr mat_dot_diagonal_right(MatrixPtr A, MatrixPtr D, int which_pool)
     {
         for (int j = 0; j < A->n; j++)
         {
-            double d_jj = D->data[j][j];
-            C->data[i][j] = A->data[i][j] * d_jj;
+            double d_jj = MAT(D, j, j);
+            MAT(C, i, j) = MAT(A, i, j) * d_jj;
         }
     }
     return C;

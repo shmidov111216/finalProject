@@ -1,38 +1,36 @@
-
 #include "symnmf.h"
-#define PY_SSIZE_T_CLEAN
 
+#define PY_SSIZE_T_CLEAN
+#define MODULE
 #include <Python.h>
 #include "matrix_util.h"
 
 /* ========= FORWARD DECLARATIONS ========= */
 
-MatrixPtr convertPyObjToMatrix(PyObject *obj);
+MatrixPtr convertPyObjToMatrix(PyObject *obj, int which_pool);
 PyObject *matrix_to_pylist(MatrixPtr mat, int k, int d);
 static PyObject *symnmf(PyObject *self, PyObject *args);
 
 /* ======================================== */
 
 /* -------- Conversion Utilities ---------- */
-MatrixPtr convertPyObjToMatrix(PyObject *obj)
+MatrixPtr convertPyObjToMatrix(PyObject *obj, int which_pool)
 {
     int N = PyList_GET_SIZE(obj);
     PyObject *first_row = PyList_GET_ITEM(obj, 0);
     int d = PyList_GET_SIZE(first_row);
 
-    MatrixPtr mat = create_matrix(N, d, MAIN_POOL);
+    MatrixPtr mat = create_matrix(N, d, which_pool);
     CHECK_MATRIX_ALLOC(mat);
 
     for (int i = 0; i < N; i++)
     {
         PyObject *row = PyList_GET_ITEM(obj, i);
-        double *target_row = mat->data[i]; // Get the row pointer once
-
         for (int j = 0; j < d; j++)
         {
-            // PyList_GET_ITEM is a macro (no function call overhead)
-            // PyFloat_AsDouble is necessary to extract the raw 8-byte double
-            target_row[j] = PyFloat_AsDouble(PyList_GET_ITEM(row, j));
+            MAT(mat, i, j) = PyFloat_AsDouble(
+                PyList_GET_ITEM(row, j)
+            );
         }
     }
     return mat;
@@ -83,33 +81,26 @@ static PyObject *symnmf(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "OOii", &H_py, &W_py, &n, &k))
         return NULL;
 
-    H = convertPyObjToMatrix(H_py);
+    H = convertPyObjToMatrix(H_py, REGULAR_ALLOC);
+    CHECK_FREE_AND_EXIT(H);
+
     printf("H created\n");
-    W = convertPyObjToMatrix(W_py);
+    W = convertPyObjToMatrix(W_py, MAIN_POOL);
     
     printf("W created\n");
     
 
     printf("created matrices success!\n");
-
-    if (!H || !W)
-    {
-        FREE_AND_EXIT();
-    }
+    W = NULL;
+    CHECK_FREE_AND_EXIT(W);
 
     printf("before algorithm\n");
     
     res_H = getResultH(H, W);
-    if (!H)
-    {
-        FREE_AND_EXIT();
-    }
+    CHECK_FREE_AND_EXIT(res_H);
 
     res_H_py = matrix_to_pylist(res_H, n, k);
-    if (!res_H_py)
-    {
-        FREE_AND_EXIT();
-    }
+    CHECK_FREE_AND_EXIT(res_H_py);
     
     printf("after algorithm\n");
 
@@ -130,26 +121,14 @@ static PyObject *sym(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "Oii", &X_py, &n, &d))
         return NULL;
 
-    X = convertPyObjToMatrix(X_py);
-
-    if (!X)
-    {
-        FREE_AND_EXIT();
-    }
+    X = convertPyObjToMatrix(X_py, MAIN_POOL);
+    CHECK_FREE_AND_EXIT(X);
     // todo
     A = getSimilarityMatrix(X);
-
-    if (!A)
-    {
-        FREE_AND_EXIT();
-    }
+    CHECK_FREE_AND_EXIT(A);
 
     A_py = matrix_to_pylist(A, n, n);
-    
-    if (!A_py)
-    {
-        FREE_AND_EXIT();
-    }
+    CHECK_FREE_AND_EXIT(A_py);
 
     pool_free_all(TEMP_POOL);
     pool_free_all(MAIN_POOL);
@@ -167,24 +146,14 @@ static PyObject *ddg(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "Oi", &A_py, &n))
         return NULL;
 
-    A = convertPyObjToMatrix(A_py);
-
-    if (!A)
-    {
-        FREE_AND_EXIT();
-    }
+    A = convertPyObjToMatrix(A_py, MAIN_POOL);
+    CHECK_FREE_AND_EXIT(A);
 
     D = getDiagonalDegreeMatrix(A);
-
-    if (!D){
-        FREE_AND_EXIT();
-    }
+    CHECK_FREE_AND_EXIT(D);
 
     D_py = matrix_to_pylist(D, n, n);
-
-    if (!D_py){
-        FREE_AND_EXIT();
-    }
+    CHECK_FREE_AND_EXIT(D_py);
 
     pool_free_all(TEMP_POOL);
     pool_free_all(MAIN_POOL);
@@ -203,23 +172,17 @@ static PyObject *norm(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "OOi", &A_py, &D_py, &n))
         return NULL;
 
-    A = convertPyObjToMatrix(A_py);
-    D = convertPyObjToMatrix(D_py);
+    A = convertPyObjToMatrix(A_py, MAIN_POOL);
+    CHECK_FREE_AND_EXIT(A);
 
-    if (!D || !A){
-        FREE_AND_EXIT();
-    }
+    D = convertPyObjToMatrix(D_py, MAIN_POOL);
+    CHECK_FREE_AND_EXIT(D);
+
     W = getNormalizedSimilarityMatrix(A, D);
+    CHECK_FREE_AND_EXIT(W);
 
-    if (!W){
-        FREE_AND_EXIT();
-    }
-
-    W_py = matrix_to_pylist(W, n, n);
-    
-    if (!W_py){
-        FREE_AND_EXIT();
-    }
+    W_py = matrix_to_pylist(W, n, n);  
+    CHECK_FREE_AND_EXIT(W_py);
 
     pool_free_all(TEMP_POOL);
     pool_free_all(MAIN_POOL);

@@ -82,118 +82,99 @@ def print_formatted(mat):
     print('\n'.join([','.join([f"{x:.4f}" for x in line]) for line in mat]))
 
 def symnmf_clustering(X: np.ndarray, k: int, use_c_module=False):
-    n, d = X.shape
+    try:
+        n, d = X.shape
 
-    # --- Step 1: Similarity matrix ---
-    if use_c_module:
-        A = np.array(symnmfmodule.sym(X.tolist(), n, d))
-        print('sym')
-    else:
-        A = get_similarity_matrix(X)
+        # --- Step 1: Similarity matrix ---
+        if use_c_module:
+            A = np.array(symnmfmodule.sym(X.tolist(), n, d))
+            print('sym')
+        else:
+            A = get_similarity_matrix(X)
 
-    # --- Step 2: Degree matrix ---
-    if use_c_module:
-        D = np.array(symnmfmodule.ddg(A.tolist(), n))
-        print('ddg')
-    else:
-        D = get_diagonal_degree_matrix(A)
+        # --- Step 2: Degree matrix ---
+        if use_c_module:
+            D = np.array(symnmfmodule.ddg(A.tolist(), n))
+            print('ddg')
+        else:
+            D = get_diagonal_degree_matrix(A)
 
-    # --- Step 3: Normalized similarity ---
-    if use_c_module:
-        W = np.array(symnmfmodule.norm(A.tolist(), D.tolist(), n))
-        print('norm')
-    else:
-        W = get_normalized_similarity_matrix(A, D)
+        # --- Step 3: Normalized similarity ---
+        if use_c_module:
+            W = np.array(symnmfmodule.norm(A.tolist(), D.tolist(), n))
+            print('norm')
+        else:
+            W = get_normalized_similarity_matrix(A, D)
 
-    # --- Step 4: Initialize H ---
-    H_init = init_H(W, k)
+        # --- Step 4: Initialize H ---
+        H_init = init_H(W, k)
 
-    # --- Step 5: Run SymNMF ---
-    if use_c_module:
-        H = np.array(symnmfmodule.symnmf(H_init.tolist(), W.tolist(), n, k))
-    else:
-        H = symnmf_numpy_cstyle(W, H_init)
+        # --- Step 5: Run SymNMF ---
+        if use_c_module:
+            H = np.array(symnmfmodule.symnmf(H_init.tolist(), W.tolist(), n, k))
+        else:
+            H = symnmf_numpy_cstyle(W, H_init)
 
-    # --- Step 6: Extract clusters ---
-    clusters = get_clusters_from_H(H)
+        # --- Step 6: Extract clusters ---
+        clusters = get_clusters_from_H(H)
 
-    return clusters, H
+        return clusters, H
+    
+    except:
+        print("An Error Has Occurred")
+        exit(1)
 
 def main(*args):
-    k = int(args[0])
-    goal = args[1]
-    df = pandas.read_csv(args[2], header=None)
-
-    X = df.to_numpy()
-
-    n = X.shape[0]
-    d = X.shape[1]
-    
-    A = symnmfmodule.sym(X.tolist(), n, d)
-    A_py = get_similarity_matrix(X)
-    if goal == 'sym':
-        print_formatted(A)
-        return
-    
-    D = symnmfmodule.ddg(A, n)
-    D_py = get_diagonal_degree_matrix(A_py)
-    
-    if goal == 'ddg':
-        print_formatted(D)
-        return
-    
-    W = symnmfmodule.norm(A, D, n)
-    W_py = get_normalized_similarity_matrix(A_py, D_py)
-    if goal == 'norm':
-        print_formatted(W)
-        return
-    
-    H = init_H(np.array(W), k)
-    H_copy = H.copy()
-    W_copy = W.copy()
-
     try:
+        k = int(args[0])
+        goal = args[1]
+        df = pandas.read_csv(args[2], header=None)
+
+        X = df.to_numpy()
+
+        n = X.shape[0]
+        d = X.shape[1]
+        
+        A = symnmfmodule.sym(X.tolist(), n, d)
+        A_py = get_similarity_matrix(X)
+        if goal == 'sym':
+            print_formatted(A)
+            return
+        
+        D = symnmfmodule.ddg(A, n)
+        D_py = get_diagonal_degree_matrix(A_py)
+        
+        if goal == 'ddg':
+            print_formatted(D)
+            return
+        
+        W = symnmfmodule.norm(A, D, n)
+        W_py = get_normalized_similarity_matrix(A_py, D_py)
+        if goal == 'norm':
+            print_formatted(W)
+            return
+        
+        H = init_H(np.array(W), k)
+        H_copy = H.copy()
+        W_copy = W.copy()
+
+        
         H_res = symnmfmodule.symnmf(H.tolist(),W, n, k)
+
+
+        
+        print_formatted(H_res)
+
+        print('***********************************\nnumpy algo\n***********************************')
+        H_res_test = symnmf_numpy_cstyle(W_py, H_copy)
+        print_formatted(H_res_test)
     
     except Exception as e:
-        print(e)
+        #print(e)
+        print("An Error Has Occurred Python")
         exit(1)
     
-    
-    print('\n'.join([','.join([f"{x:.4f}" for x in line]) for line in H_res]))
-
-    print('***********************************\nnumpy algo\n***********************************')
-    H_res_test = symnmf_numpy_cstyle(W_py, H_copy)
-    print('\n'.join([','.join([f"{x:.4f}" for x in line]) for line in H_res_test]))
 
 
 if __name__ == "__main__":
     main(*sys.argv[1:])
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
-#add try and execpt
