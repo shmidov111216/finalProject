@@ -11,6 +11,7 @@ MatrixPtr updateH(MatrixPtr H, MatrixPtr W)
     double beta = 0.5;
     MatrixPtr H_updated, W_H, Ht, H_Ht, H_Ht_H;
 
+    /* following given equation in assignment*/
     W_H = mat_dot(W, H, TEMP_POOL);
     CHECK_MATRIX_ALLOC(W_H);
 
@@ -23,7 +24,7 @@ MatrixPtr updateH(MatrixPtr H, MatrixPtr W)
     H_Ht_H = mat_dot(H_Ht, H, TEMP_POOL);
     CHECK_MATRIX_ALLOC(H_Ht_H);
 
-    /* fill H_Ht_H zeroes */
+    /* fill H_Ht_H zeroes to avoid deviding by zero */
     replace_zeroes(H_Ht_H);
     mat_reciprocal_inplace(H_Ht_H);
     mat_elementwise_prod_inplace(W_H, H_Ht_H);
@@ -42,6 +43,8 @@ int checkConvergence(MatrixPtr H, MatrixPtr H_updated, double epsilon)
 {
     int isConverged;
 
+    /* setting H = H_updated - H to check convergence */
+    /* note -- H is being overridden (it is no longer needed) */
     mat_scalar_mult_inplace(H, -1);
     mat_add_inplace(H, H_updated);
     isConverged = mat_norm_sq(H) < epsilon;
@@ -262,12 +265,13 @@ MatrixPtr parse_matrix_from_stream(FILE *fp)
             }
         }
     }
-    X = X;
     free(buffer);
     return X;
 }
 
+/* Do not compile for python module */
 #ifndef PYTHON_BUILD
+
 int main(int argc, char *argv[])
 {
     char *file_name;

@@ -46,10 +46,6 @@ def symnmf_clustering(X: np.ndarray, k: int, goal='symnmf'):
         
         if goal == 'symnmf':
             return H
-        else:
-            # goal is invalid
-            print("An Error Has Occurred")
-            exit(1)
     except:
         print("An Error Has Occurred")
         exit(1)
