@@ -1,6 +1,6 @@
 from kmeans import get_kmeans, assign_clusters
 from sklearn.metrics import silhouette_score
-from symnmf import symnmf_clustering
+from symnmf import symnmf_clustering, get_clusters_from_H
 import pandas
 import sys
 
@@ -16,7 +16,8 @@ def main(*args):
     kmeans_cluster_assign = assign_clusters(X, centroids_kmeans)
 
     try:
-        symnmf_cluster_assign, H = symnmf_clustering(X, k, use_c_module=True)
+        H = symnmf_clustering(X, k)
+        symnmf_cluster_assign = get_clusters_from_H(H)
     except Exception as e:
         print(e)
         exit(1)

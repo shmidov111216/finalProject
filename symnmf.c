@@ -1,4 +1,8 @@
 #include "symnmf.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
 
 /* -------- Core Algorithm ---------- */
 
@@ -18,8 +22,8 @@ MatrixPtr updateH(MatrixPtr H, MatrixPtr W)
 
     H_Ht_H = mat_dot(H_Ht, H, TEMP_POOL);
     CHECK_MATRIX_ALLOC(H_Ht_H);
-    // fill H_Ht_H zeroes
 
+    /* fill H_Ht_H zeroes */
     replace_zeroes(H_Ht_H);
     mat_reciprocal_inplace(H_Ht_H);
     mat_elementwise_prod_inplace(W_H, H_Ht_H);
@@ -51,6 +55,7 @@ MatrixPtr getResultH(MatrixPtr H, MatrixPtr W)
     const int maxIter = 300;
     int t;
     MatrixPtr H_updated;
+
     for (t = 0; t < maxIter; t++)
     {
         H_updated = updateH(H, W);
@@ -73,13 +78,12 @@ MatrixPtr getResultH(MatrixPtr H, MatrixPtr W)
 
 MatrixPtr getSimilarityMatrix(MatrixPtr X)
 {
-    MatrixPtr A = create_matrix(X->m, X->m, MAIN_POOL);
-
-    CHECK_MATRIX_ALLOC(A);
-
-    MatrixPtr diffVector;
+    MatrixPtr A, diffVector;
     int i, j;
     double val;
+
+    A = create_matrix(X->m, X->m, MAIN_POOL);
+    CHECK_MATRIX_ALLOC(A);
 
     for (i = 0; i < X->m; i++)
     {
@@ -94,10 +98,10 @@ MatrixPtr getSimilarityMatrix(MatrixPtr X)
                 diffVector = get_row_diff(X, i, j, TEMP_POOL);
                 val = exp(-0.5 * mat_norm_sq(diffVector));
                 mat_set(A, i, j, val);
-                
             }
         }
     }
+
     pool_free_all(TEMP_POOL);
     return A;
 }
@@ -105,14 +109,14 @@ MatrixPtr getSimilarityMatrix(MatrixPtr X)
 MatrixPtr getDiagonalDegreeMatrix(MatrixPtr A)
 {
     int i;
-    MatrixPtr D = create_matrix(A->m, A->m, MAIN_POOL);
-    //D = NULL;
     double value;
-    D = NULL;
+    MatrixPtr D, sumVector;
+
+    D = create_matrix(A->m, A->m, MAIN_POOL);
     CHECK_MATRIX_ALLOC(D);
 
-    // sumVector is a col vector
-    MatrixPtr sumVector = sum_axis_0(A, TEMP_POOL);
+    /* sumVector is a col vector */
+    sumVector = sum_axis_0(A, TEMP_POOL);
     CHECK_MATRIX_ALLOC(sumVector);
 
     for (i = 0; i < D->m; i++)
@@ -120,6 +124,7 @@ MatrixPtr getDiagonalDegreeMatrix(MatrixPtr A)
         value = mat_get(sumVector, i, 0);
         mat_set(D, i, i, value);
     }
+
     pool_free_all(TEMP_POOL);
     return D;
 }
@@ -127,118 +132,186 @@ MatrixPtr getDiagonalDegreeMatrix(MatrixPtr A)
 MatrixPtr getNormalizedSimilarityMatrix(MatrixPtr A, MatrixPtr D)
 {
     MatrixPtr W, tmp;
+
     diagonal_power_inplace(D, -0.5);
-    //printf("\ndiagonal_power_inplace\n");
-    //printf("\neeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\n");
-    
+
     tmp = mat_dot_diagonal_left(D, A, TEMP_POOL);
-    //printf("\nmat_dot_diagonal_left(D, A)\n");
-    
     W = mat_dot_diagonal_right(tmp, D, MAIN_POOL);
-    //printf("\nmat_dot(tmp, D)\n");
 
     pool_free_all(TEMP_POOL);
     return W;
 }
-
 MatrixPtr parse_matrix_from_stream(FILE *fp)
 {
-    char *line = NULL;
-    size_t len = 0;
+    size_t line_cap;
+    char *line;
 
-    int rows_cap = INIT_CAP;
-    int cols = -1;
-    int rows = 0;
-    int bufferCnt = 0;
+    int rows;
+    int cols;
+    int total_cap;
+    int total_used;
+    int bufferCnt;
 
-    double *buffer = malloc(rows_cap * INIT_CAP * sizeof(double));
+    double *buffer;
+
+    MatrixPtr X;
+
+    /* init */
+    line_cap = 1024;
+    line = (char *)malloc(line_cap);
+    CHECK_MATRIX_ALLOC(line);
+
+    rows = 0;
+    cols = -1;
+    bufferCnt = 0;
+
+    total_cap = INIT_CAP;
+    total_used = 0;
+
+    buffer = (double *)malloc(total_cap * sizeof(double));
     CHECK_MATRIX_ALLOC(buffer);
 
-    int total_cap = rows_cap * INIT_CAP;
-    int total_used = 0;
-
-    while (getline(&line, &len, fp) != -1)
+    while (fgets(line, (int)line_cap, fp))
     {
-        int col_count = 0;
+        size_t len;
 
-        char *token = strtok(line, ", \t\n");
-        while (token)
+        len = strlen(line);
+
+        /* grow line buffer if needed (no limit on line length) */
+        while (len == line_cap - 1 && line[len - 1] != '\n')
         {
-            if (total_used >= total_cap)
+            char *tmp_line;
+
+            line_cap *= 2;
+            tmp_line = (char *)realloc(line, line_cap);
+            CHECK_MATRIX_ALLOC(tmp_line);
+            line = tmp_line;
+
+            if (!fgets(line + len, (int)(line_cap - len), fp))
+                break;
+
+            len = strlen(line);
+        }
+
+        /* tokenize */
+        {
+            char *token;
+            int col_count;
+
+            token = strtok(line, ", \t\n");
+            col_count = 0;
+
+            while (token)
             {
-                total_cap *= 2;
-                buffer = realloc(buffer, total_cap * sizeof(double));
-                CHECK_MATRIX_ALLOC(buffer);
+                if (total_used >= total_cap)
+                {
+                    double *tmp_buf;
+
+                    total_cap *= 2;
+                    tmp_buf = (double *)realloc(buffer, total_cap * sizeof(double));
+                    CHECK_MATRIX_ALLOC(tmp_buf);
+                    buffer = tmp_buf;
+                }
+
+                buffer[total_used] = atof(token);
+                total_used++;
+                col_count++;
+
+                token = strtok(NULL, ", \t\n");
             }
 
-            buffer[total_used++] = atof(token);
-            col_count++;
+            if (col_count == 0)
+                continue; /* skip empty lines */
 
-            token = strtok(NULL, ", \t\n");
+            if (cols == -1)
+                cols = col_count;
+            else if (cols != col_count)
+            {
+                free(buffer);
+                free(line);
+                return NULL;
+            }
+
+            rows++;
         }
-
-        if (cols == -1)
-            cols = col_count;
-        else if (cols != col_count)
-        {
-            free(buffer);
-            free(line);
-            return NULL;
-        }
-
-        rows++;
     }
 
     free(line);
 
-    MatrixPtr X = create_matrix(rows, cols, MAIN_POOL);
+    if (rows == 0 || cols <= 0)
+    {
+        free(buffer);
+        return NULL;
+    }
+
+    X = create_matrix(rows, cols, MAIN_POOL);
     CHECK_MATRIX_ALLOC(X);
 
-    
-    for (int i = 0; i < rows; i++)
     {
-        for (int j = 0; j < cols; j++)
+        int i;
+        int j;
+
+        bufferCnt = 0;
+
+        for (i = 0; i < rows; i++)
         {
-            MAT(X, i, j) = buffer[bufferCnt++];
+            for (j = 0; j < cols; j++)
+            {
+                MAT(X, i, j) = buffer[bufferCnt];
+                bufferCnt++;
+            }
         }
     }
+    X = X;
     free(buffer);
-
     return X;
 }
 
 #ifndef PYTHON_BUILD
-int main(int argc, char *argv[]){
-    char *file_name = argv[2];
-    char *goal = argv[1];
-    goal = goal;
-    FILE *file = fopen(file_name, "r");
+int main(int argc, char *argv[])
+{
+    char *file_name;
+    char *goal;
+    FILE *file;
+    MatrixPtr X, A, D, W;
+
+    if (argc < 3)
+        return 1;
+
+    goal = argv[1];
+    file_name = argv[2];
+
+    file = fopen(file_name, "r");
+    if (file == NULL)
+        return 1;
+
     init_pools();
 
-    printf("Hello not ok ");
-
-    MatrixPtr X = parse_matrix_from_stream(file);
+    X = parse_matrix_from_stream(file);
     CHECK_FREE_AND_EXIT(X);
-
-    MatrixPtr A, D, W;
 
     A = getSimilarityMatrix(X);
     CHECK_FREE_AND_EXIT(A);
 
     if (strcmp("sym", goal) == 0)
         print_matrix(A);
-    
+
     D = getDiagonalDegreeMatrix(A);
     CHECK_FREE_AND_EXIT(D);
 
     if (strcmp("ddg", goal) == 0)
         print_matrix(D);
-    
+
     W = getNormalizedSimilarityMatrix(A, D);
     CHECK_FREE_AND_EXIT(W);
 
     if (strcmp("norm", goal) == 0)
         print_matrix(W);
-    
+
+    fclose(file);
+    pool_free_all(TEMP_POOL);
+    pool_free_all(MAIN_POOL);
+    return 0;
 }
+
 #endif

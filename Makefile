@@ -1,2 +1,2 @@
 symnmf: symnmf.c matrix_util.c
-	gcc symnmf.c matrix_util.c -lm -o symnmf
+	gcc -ansi -Wall -Wextra -Werror -pedantic-errors symnmf.c matrix_util.c -lm -o symnmf

@@ -1,4 +1,3 @@
-
 #ifndef MATRIX_UTIL_H
 #define MATRIX_UTIL_H
 
@@ -21,7 +20,6 @@
 #define ERROR_CODE 1
 #endif
 
-
 #define REGULAR_ALLOC 0
 #define MAIN_POOL 1
 #define TEMP_POOL 2
@@ -34,6 +32,7 @@
         if (!(ptr))             \
             return NULL;        \
     } while (0)
+
 #define CHECK_FREE_AND_EXIT(ptr)      \
     do                                \
     {                                 \
@@ -46,12 +45,12 @@
         }                             \
     } while (0)
 
-// Matrix struct
+/* Matrix struct */
 typedef struct
 {
-    int m;         // rows
-    int n;         // columns
-    double *data; //  contiguous m*n block
+    int m;          /* rows */
+    int n;          /* columns */
+    double *data;   /* contiguous m*n block */
 } Matrix;
 
 typedef struct Allocation
@@ -65,17 +64,17 @@ typedef struct
     Allocation *head;
 } MemoryPool;
 
-// Pointer typedef
+/* Pointer typedef */
 typedef Matrix *MatrixPtr;
 
-// Function prototypes
+/* Function prototypes */
 MatrixPtr create_matrix(int m, int n, int which_pool);
 int free_matrix(MatrixPtr A);
 void print_matrix(MatrixPtr A);
 double mat_get(MatrixPtr A, int i, int j);
 void mat_set(MatrixPtr A, int i, int j, double val);
 
-// Operations
+/* Operations */
 MatrixPtr mat_transpose(MatrixPtr A, int which_pool);
 void mat_add_inplace(MatrixPtr A, MatrixPtr B);
 void mat_scalar_mult_inplace(MatrixPtr A, double scalar);
@@ -93,7 +92,7 @@ void diagonal_power_inplace(MatrixPtr A, double power);
 MatrixPtr mat_dot_diagonal_left(MatrixPtr D, MatrixPtr A, int which_pool);
 MatrixPtr mat_dot_diagonal_right(MatrixPtr A, MatrixPtr D, int which_pool);
 
-// pool functions
+/* Pool functions */
 void pool_init(MemoryPool *pool);
 void *pool_register(MemoryPool *pool, void *ptr);
 void *pool_alloc(MemoryPool *pool, size_t size);
