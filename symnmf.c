@@ -99,6 +99,8 @@ MatrixPtr getSimilarityMatrix(MatrixPtr X)
             else
             {
                 diffVector = get_row_diff(X, i, j, TEMP_POOL);
+                CHECK_MATRIX_ALLOC(diffVector);
+
                 val = exp(-0.5 * mat_norm_sq(diffVector));
                 mat_set(A, i, j, val);
             }
@@ -139,7 +141,10 @@ MatrixPtr getNormalizedSimilarityMatrix(MatrixPtr A, MatrixPtr D)
     diagonal_power_inplace(D, -0.5);
 
     tmp = mat_dot_diagonal_left(D, A, TEMP_POOL);
+    CHECK_MATRIX_ALLOC(tmp);
+    
     W = mat_dot_diagonal_right(tmp, D, MAIN_POOL);
+    /* Don't need CHECK_MATRIX_ALLOC(W) since we check it in main()*/
 
     pool_free_all(TEMP_POOL);
     return W;
@@ -147,7 +152,7 @@ MatrixPtr getNormalizedSimilarityMatrix(MatrixPtr A, MatrixPtr D)
 MatrixPtr parse_matrix_from_stream(FILE *fp)
 {
     size_t line_cap;
-    char *line;
+    char *line = NULL; /* Initialize to NULL for safe cleanup */
 
     int rows;
     int cols;
@@ -155,14 +160,15 @@ MatrixPtr parse_matrix_from_stream(FILE *fp)
     int total_used;
     int bufferCnt;
 
-    double *buffer;
+    double *buffer = NULL; /* Initialize to NULL for safe cleanup */
 
-    MatrixPtr X;
+    MatrixPtr X = NULL;
 
     /* init */
     line_cap = 1024;
     line = (char *)malloc(line_cap);
-    CHECK_MATRIX_ALLOC(line);
+    if (!line)
+        goto memory_error;
 
     rows = 0;
     cols = -1;
@@ -172,7 +178,8 @@ MatrixPtr parse_matrix_from_stream(FILE *fp)
     total_used = 0;
 
     buffer = (double *)malloc(total_cap * sizeof(double));
-    CHECK_MATRIX_ALLOC(buffer);
+    if (!buffer)
+        goto memory_error;
 
     while (fgets(line, (int)line_cap, fp))
     {
@@ -187,7 +194,12 @@ MatrixPtr parse_matrix_from_stream(FILE *fp)
 
             line_cap *= 2;
             tmp_line = (char *)realloc(line, line_cap);
-            CHECK_MATRIX_ALLOC(tmp_line);
+
+            /* If realloc fails, tmp_line is NULL, but 'line' STILL points to the old memory.
+               We jump to error to free 'line' safely without leaking it. */
+            if (!tmp_line)
+                goto memory_error;
+
             line = tmp_line;
 
             if (!fgets(line + len, (int)(line_cap - len), fp))
@@ -212,7 +224,11 @@ MatrixPtr parse_matrix_from_stream(FILE *fp)
 
                     total_cap *= 2;
                     tmp_buf = (double *)realloc(buffer, total_cap * sizeof(double));
-                    CHECK_MATRIX_ALLOC(tmp_buf);
+
+                    /* Same realloc safety check here */
+                    if (!tmp_buf)
+                        goto memory_error;
+
                     buffer = tmp_buf;
                 }
 
@@ -230,25 +246,29 @@ MatrixPtr parse_matrix_from_stream(FILE *fp)
                 cols = col_count;
             else if (cols != col_count)
             {
-                free(buffer);
-                free(line);
-                return NULL;
+                /* Invalid matrix shape */
+                goto memory_error;
             }
 
             rows++;
         }
     }
 
+    /* Free line BEFORE allocating X to reduce peak memory usage */
     free(line);
+    line = NULL; /* Set to NULL so the error block doesn't double-free it */
 
     if (rows == 0 || cols <= 0)
     {
-        free(buffer);
-        return NULL;
+        goto memory_error;
     }
 
+    /* Attempt to create the matrix */
     X = create_matrix(rows, cols, MAIN_POOL);
-    CHECK_MATRIX_ALLOC(X);
+
+    /* 100% PROOF: If X fails to allocate, we must free buffer and exit safely */
+    if (!X)
+        goto memory_error;
 
     {
         int i;
@@ -265,8 +285,23 @@ MatrixPtr parse_matrix_from_stream(FILE *fp)
             }
         }
     }
+
+    /* Success: clean up temporary buffer and return */
     free(buffer);
     return X;
+
+/* --- CENTRALIZED ERROR HANDLING --- */
+memory_error:
+    /* In C, calling free() on a NULL pointer is completely safe (it does nothing).
+       Because we initialize our pointers to NULL, and set them to NULL when manually
+       freed early, this block perfectly cleans up exactly what is currently allocated. */
+    free(line);
+    free(buffer);
+
+    /* If we had an X allocation that failed halfway or needed destruction,
+       we'd call destroy_matrix(X) here if X wasn't NULL. */
+
+    return NULL;
 }
 
 /* Do not compile for python module */

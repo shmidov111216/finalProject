@@ -32,19 +32,17 @@
         if (!(ptr))             \
             return NULL;        \
     } while (0)
-
-#define CHECK_FREE_AND_EXIT(ptr)      \
-    do                                \
-    {                                 \
-        if (!(ptr))                   \
-        {                             \
-            ERROR_PRINT();            \
-            pool_free_all(MAIN_POOL); \
-            pool_free_all(TEMP_POOL); \
-            return ERROR_CODE;        \
-        }                             \
+#define CHECK_FREE_AND_EXIT(ptr) \
+    do                           \
+    {                            \
+        if (!(ptr))              \
+        {                        \
+            ERROR_PRINT();       \
+            destroy_pools();     \
+            return ERROR_CODE;   \
+        }                        \
     } while (0)
-
+    
 /* Matrix struct */
 typedef struct
 {
@@ -99,6 +97,7 @@ void *pool_alloc(MemoryPool *pool, size_t size);
 void *pool_calloc(MemoryPool *pool, size_t num, size_t size);
 void *pool_realloc(MemoryPool *pool, void *old_ptr, size_t new_size);
 void pool_free_all(int which_pool);
+void destroy_pools();
 void init_pools();
 void pool_register_choice(int which_pool, void *ptr);
 

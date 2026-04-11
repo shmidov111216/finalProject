@@ -77,6 +77,20 @@ void pool_free_all(int which_pool)
     pool->head = NULL;
 }
 
+void destroy_pools()
+{
+    /* 1. Free all matrices and all nodes in both pools */
+    pool_free_all(MAIN_POOL);
+    pool_free_all(TEMP_POOL);
+
+    /* 2. If you had any other global resources (like a file pointer
+          or a large internal buffer), close them here. */
+
+    /* 3. Nullify pointers to prevent accidental use-after-free */
+    mainPool->head = NULL;
+    tempPool->head = NULL;
+}
+
 /* Call before using pools */
 void init_pools()
 {
@@ -129,7 +143,11 @@ void print_matrix(MatrixPtr A)
     for (i = 0; i < A->m; i++)
     {
         for (j = 0; j < A->n; j++)
-            printf("%.4f ", MAT(A, i, j));
+        {
+            if (j > 0)
+                printf(",");
+            printf("%.4f", MAT(A, i, j));
+        }
         printf("\n");
     }
 }
@@ -243,11 +261,6 @@ void mat_reciprocal_inplace(MatrixPtr A)
     for (i = 0; i < A->m; i++)
         for (j = 0; j < A->n; j++)
         {
-            if (MAT(A, i, j) == 0.0)
-            {
-                fprintf(stderr, "Error: div by zero at [%d][%d].\n", i, j);
-                exit(EXIT_FAILURE);
-            }
             MAT(A, i, j) = 1.0 / MAT(A, i, j);
         }
 }
