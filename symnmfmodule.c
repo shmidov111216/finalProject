@@ -16,11 +16,8 @@ static PyObject *symnmf(PyObject *self, PyObject *args);
 /* -------- Conversion Utilities ---------- */
 MatrixPtr convertPyObjToMatrix(PyObject *obj, int which_pool)
 {
-    int N;
-    int d;
-    int i, j;
-    PyObject *first_row;
-    PyObject *row;
+    int N,d,i,j;
+    PyObject *first_row, *row;
     MatrixPtr mat;
 
     N = PyList_GET_SIZE(obj);
@@ -44,10 +41,9 @@ MatrixPtr convertPyObjToMatrix(PyObject *obj, int which_pool)
 
 PyObject *matrix_to_pylist(MatrixPtr mat, int k, int d)
 {
+    PyObject *outer, *row, *val;
     int i, j;
-    PyObject *outer;
-    PyObject *row;
-    PyObject *val;
+
 
     outer = PyList_New(k);
     if (!outer)
@@ -78,55 +74,43 @@ PyObject *matrix_to_pylist(MatrixPtr mat, int k, int d)
 
 static PyObject *symnmf(PyObject *self, PyObject *args)
 {
-    PyObject *H_py;
-    PyObject *W_py;
-    PyObject *res_H_py;
-
-    int n;
-    int k;
-
-    MatrixPtr H;
-    MatrixPtr W;
-    MatrixPtr res_H;
-
-    (void)self;
-
+    PyObject *H_py, *W_py, *res_H_py;
+    MatrixPtr H, W, res_H;
+    int n, k;
+    
     init_pools();
 
     if (!PyArg_ParseTuple(args, "OOii", &H_py, &W_py, &n, &k))
         return NULL;
 
     H = convertPyObjToMatrix(H_py, REGULAR_ALLOC);
-    CHECK_FREE_AND_EXIT(H);
+    if (!H) goto check_free_and_exit;
 
     W = convertPyObjToMatrix(W_py, MAIN_POOL);
-    CHECK_FREE_AND_EXIT(W);
+    if (!W) goto check_free_and_exit;
 
     res_H = getResultH(H, W);
-    CHECK_FREE_AND_EXIT(res_H);
+    if (!res_H) goto check_free_and_exit;
 
     res_H_py = matrix_to_pylist(res_H, n, k);
-    CHECK_FREE_AND_EXIT(res_H_py);
+    if (!res_H_py) goto check_free_and_exit;
 
 
-    pool_free_all(MAIN_POOL);
-    pool_free_all(TEMP_POOL);
+    destroy_pools();
 
     return res_H_py;
+    
+    check_free_and_exit:
+        ERROR_PRINT();
+        destroy_pools();
+        return ERROR_CODE;
 }
 
 static PyObject *sym(PyObject *self, PyObject *args)
 {
-    PyObject *X_py;
-    PyObject *A_py;
-
-    int n;
-    int d;
-
-    MatrixPtr X;
-    MatrixPtr A;
-
-    (void)self;
+    PyObject *X_py, *A_py;
+    MatrixPtr X, A;
+    int n, d;
 
     init_pools();
 
@@ -134,87 +118,83 @@ static PyObject *sym(PyObject *self, PyObject *args)
         return NULL;
 
     X = convertPyObjToMatrix(X_py, MAIN_POOL);
-    CHECK_FREE_AND_EXIT(X);
+    if (!X) goto check_free_and_exit;
 
     A = getSimilarityMatrix(X);
-    CHECK_FREE_AND_EXIT(A);
+    if (!A) goto check_free_and_exit;
 
     A_py = matrix_to_pylist(A, n, n);
-    CHECK_FREE_AND_EXIT(A_py);
+    if (!A_py) goto check_free_and_exit;
 
-    pool_free_all(TEMP_POOL);
-    pool_free_all(MAIN_POOL);
-
+    destroy_pools();
     return A_py;
+
+    check_free_and_exit:
+        ERROR_PRINT();
+        destroy_pools();
+        return ERROR_CODE;
 }
 
 static PyObject *ddg(PyObject *self, PyObject *args)
 {
-    PyObject *A_py;
-    PyObject *D_py;
-
+    PyObject *A_py, *D_py;
+    MatrixPtr A, D;
     int n;
-
-    MatrixPtr A;
-    MatrixPtr D;
-
-    (void)self;
-
     init_pools();
 
     if (!PyArg_ParseTuple(args, "Oi", &A_py, &n))
         return NULL;
 
     A = convertPyObjToMatrix(A_py, MAIN_POOL);
-    CHECK_FREE_AND_EXIT(A);
+    if (!A) goto check_free_and_exit;
 
     D = getDiagonalDegreeMatrix(A);
-    CHECK_FREE_AND_EXIT(D);
+    if (!D) goto check_free_and_exit;
 
     D_py = matrix_to_pylist(D, n, n);
-    CHECK_FREE_AND_EXIT(D_py);
+    if (!D_py) goto check_free_and_exit;
 
-    pool_free_all(TEMP_POOL);
-    pool_free_all(MAIN_POOL);
+    destroy_pools();
 
     return D_py;
+
+    check_free_and_exit:
+        ERROR_PRINT();
+        destroy_pools();
+        return ERROR_CODE;
 }
 
 static PyObject *norm(PyObject *self, PyObject *args)
 {
-    PyObject *W_py;
-    PyObject *A_py;
-    PyObject *D_py;
-
+    PyObject *W_py, *A_py, *D_py;
+    MatrixPtr W, A, D;
     int n;
-
-    MatrixPtr W;
-    MatrixPtr A;
-    MatrixPtr D;
-
-    (void)self;
-
+    
     init_pools();
 
     if (!PyArg_ParseTuple(args, "OOi", &A_py, &D_py, &n))
         return NULL;
 
     A = convertPyObjToMatrix(A_py, MAIN_POOL);
-    CHECK_FREE_AND_EXIT(A);
+    if(!A) goto check_free_and_exit;
 
     D = convertPyObjToMatrix(D_py, MAIN_POOL);
-    CHECK_FREE_AND_EXIT(D);
+    if (!D) goto check_free_and_exit;
 
     W = getNormalizedSimilarityMatrix(A, D);
-    CHECK_FREE_AND_EXIT(W);
+    if (!W) goto check_free_and_exit;
 
     W_py = matrix_to_pylist(W, n, n);
-    CHECK_FREE_AND_EXIT(W_py);
+    if(!W_py) goto check_free_and_exit;
 
-    pool_free_all(TEMP_POOL);
-    pool_free_all(MAIN_POOL);
+    destroy_pools();
 
     return W_py;
+
+    check_free_and_exit:
+        ERROR_PRINT();
+        destroy_pools();
+        return ERROR_CODE;
 }
 
 /* -------- Module Definition ---------- */
@@ -257,7 +237,6 @@ static struct PyModuleDef symnmfmodule = {
     -1,
     symnmfMethods};
 
-PyMODINIT_FUNC PyInit_symnmfmodule(void)
-{
+PyMODINIT_FUNC PyInit_symnmfmodule(void){
     return PyModule_Create(&symnmfmodule);
 }

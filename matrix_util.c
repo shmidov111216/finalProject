@@ -10,6 +10,8 @@ static MemoryPool tempPoolObj;
 static MemoryPool *mainPool = &mainPoolObj;
 static MemoryPool *tempPool = &tempPoolObj;
 
+static int fail_after = -1;
+
 void pool_init(MemoryPool *pool)
 {
     if (pool != NULL)
@@ -53,7 +55,11 @@ void *pool_alloc(MemoryPool *pool, size_t size)
 /* calloc on given pool */
 void *pool_calloc(MemoryPool *pool, size_t num, size_t size)
 {
-    return pool_register(pool, calloc(num, size));
+    if(fail_after != 0){
+        fail_after--;
+        return pool_register(pool, calloc(num, size));
+    }
+    return NULL;
 }
 
 /* Free all memory on given pool */

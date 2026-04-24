@@ -13,10 +13,10 @@
 #define IN_C 1
 
 #ifdef PYTHON_BUILD
-#define ERROR_PRINT() ((void)0)
+#define ERROR_PRINT() PyErr_SetString(PyExc_RuntimeError, "An Error Has Occurred")
 #define ERROR_CODE ((void *)(0))
 #else
-#define ERROR_PRINT() printf("An Error Has Occurred C\n")
+#define ERROR_PRINT() printf("An Error Has Occurred\n")
 #define ERROR_CODE 1
 #endif
 
@@ -31,16 +31,6 @@
     {                           \
         if (!(ptr))             \
             return NULL;        \
-    } while (0)
-#define CHECK_FREE_AND_EXIT(ptr) \
-    do                           \
-    {                            \
-        if (!(ptr))              \
-        {                        \
-            ERROR_PRINT();       \
-            destroy_pools();     \
-            return ERROR_CODE;   \
-        }                        \
     } while (0)
     
 /* Matrix struct */

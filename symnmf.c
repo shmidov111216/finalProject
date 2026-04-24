@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 
+
 /* -------- Core Algorithm ---------- */
 
 MatrixPtr updateH(MatrixPtr H, MatrixPtr W)
@@ -149,171 +150,14 @@ MatrixPtr getNormalizedSimilarityMatrix(MatrixPtr A, MatrixPtr D)
     pool_free_all(TEMP_POOL);
     return W;
 }
-MatrixPtr parse_matrix_from_stream(FILE *fp)
-{
-    size_t line_cap;
-    char *line = NULL; /* Initialize to NULL for safe cleanup */
-
-    int rows;
-    int cols;
-    int total_cap;
-    int total_used;
-    int bufferCnt;
-
-    double *buffer = NULL; /* Initialize to NULL for safe cleanup */
-
-    MatrixPtr X = NULL;
-
-    /* init */
-    line_cap = 1024;
-    line = (char *)malloc(line_cap);
-    if (!line)
-        goto memory_error;
-
-    rows = 0;
-    cols = -1;
-    bufferCnt = 0;
-
-    total_cap = INIT_CAP;
-    total_used = 0;
-
-    buffer = (double *)malloc(total_cap * sizeof(double));
-    if (!buffer)
-        goto memory_error;
-
-    while (fgets(line, (int)line_cap, fp))
-    {
-        size_t len;
-
-        len = strlen(line);
-
-        /* grow line buffer if needed (no limit on line length) */
-        while (len == line_cap - 1 && line[len - 1] != '\n')
-        {
-            char *tmp_line;
-
-            line_cap *= 2;
-            tmp_line = (char *)realloc(line, line_cap);
-
-            /* If realloc fails, tmp_line is NULL, but 'line' STILL points to the old memory.
-               We jump to error to free 'line' safely without leaking it. */
-            if (!tmp_line)
-                goto memory_error;
-
-            line = tmp_line;
-
-            if (!fgets(line + len, (int)(line_cap - len), fp))
-                break;
-
-            len = strlen(line);
-        }
-
-        /* tokenize */
-        {
-            char *token;
-            int col_count;
-
-            token = strtok(line, ", \t\n");
-            col_count = 0;
-
-            while (token)
-            {
-                if (total_used >= total_cap)
-                {
-                    double *tmp_buf;
-
-                    total_cap *= 2;
-                    tmp_buf = (double *)realloc(buffer, total_cap * sizeof(double));
-
-                    /* Same realloc safety check here */
-                    if (!tmp_buf)
-                        goto memory_error;
-
-                    buffer = tmp_buf;
-                }
-
-                buffer[total_used] = atof(token);
-                total_used++;
-                col_count++;
-
-                token = strtok(NULL, ", \t\n");
-            }
-
-            if (col_count == 0)
-                continue; /* skip empty lines */
-
-            if (cols == -1)
-                cols = col_count;
-            else if (cols != col_count)
-            {
-                /* Invalid matrix shape */
-                goto memory_error;
-            }
-
-            rows++;
-        }
-    }
-
-    /* Free line BEFORE allocating X to reduce peak memory usage */
-    free(line);
-    line = NULL; /* Set to NULL so the error block doesn't double-free it */
-
-    if (rows == 0 || cols <= 0)
-    {
-        goto memory_error;
-    }
-
-    /* Attempt to create the matrix */
-    X = create_matrix(rows, cols, MAIN_POOL);
-
-    /* 100% PROOF: If X fails to allocate, we must free buffer and exit safely */
-    if (!X)
-        goto memory_error;
-
-    {
-        int i;
-        int j;
-
-        bufferCnt = 0;
-
-        for (i = 0; i < rows; i++)
-        {
-            for (j = 0; j < cols; j++)
-            {
-                MAT(X, i, j) = buffer[bufferCnt];
-                bufferCnt++;
-            }
-        }
-    }
-
-    /* Success: clean up temporary buffer and return */
-    free(buffer);
-    return X;
-
-/* --- CENTRALIZED ERROR HANDLING --- */
-memory_error:
-    /* In C, calling free() on a NULL pointer is completely safe (it does nothing).
-       Because we initialize our pointers to NULL, and set them to NULL when manually
-       freed early, this block perfectly cleans up exactly what is currently allocated. */
-    free(line);
-    free(buffer);
-
-    /* If we had an X allocation that failed halfway or needed destruction,
-       we'd call destroy_matrix(X) here if X wasn't NULL. */
-
-    return NULL;
-}
 
 /* Do not compile for python module */
 #ifndef PYTHON_BUILD
 
-int main(int argc, char *argv[])
-{
-    char *file_name;
-    char *goal;
+int main(int argc, char *argv[]){
+    char *file_name, *goal;
     FILE *file;
     MatrixPtr X, A, D, W;
-
     if (argc < 3)
         return 1;
 
@@ -321,36 +165,36 @@ int main(int argc, char *argv[])
     file_name = argv[2];
 
     file = fopen(file_name, "r");
-    if (file == NULL)
-        return 1;
+    if (file == NULL) return 1;
 
     init_pools();
-
     X = parse_matrix_from_stream(file);
-    CHECK_FREE_AND_EXIT(X);
+    if(!X) goto check_free_and_exit;
 
     A = getSimilarityMatrix(X);
-    CHECK_FREE_AND_EXIT(A);
-
-    if (strcmp("sym", goal) == 0)
+    if(!A) goto check_free_and_exit;
+    if (strcmp("sym", goal) == 0) /* print similarity matrix if goal="sym" */
         print_matrix(A);
-
+    
     D = getDiagonalDegreeMatrix(A);
-    CHECK_FREE_AND_EXIT(D);
-
-    if (strcmp("ddg", goal) == 0)
+    if(!D) goto check_free_and_exit;
+    if (strcmp("ddg", goal) == 0) /* print diagonal degree matrix if goal="ddg" */
         print_matrix(D);
 
     W = getNormalizedSimilarityMatrix(A, D);
-    CHECK_FREE_AND_EXIT(W);
-
-    if (strcmp("norm", goal) == 0)
+    if(!W) goto check_free_and_exit;
+    if (strcmp("norm", goal) == 0) /* print normalized similarity matrix if goal="norm" */
         print_matrix(W);
 
     fclose(file);
-    pool_free_all(TEMP_POOL);
-    pool_free_all(MAIN_POOL);
+    destroy_pools();
     return 0;
+
+    check_free_and_exit:
+        ERROR_PRINT();
+        fclose(file);
+        destroy_pools();
+        return ERROR_CODE;
 }
 
 #endif
