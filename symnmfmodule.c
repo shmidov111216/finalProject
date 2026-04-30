@@ -20,12 +20,14 @@ MatrixPtr convertPyObjToMatrix(PyObject *obj, int which_pool)
     PyObject *first_row, *row;
     MatrixPtr mat;
 
+    /* python api to get list attributes */
     N = PyList_GET_SIZE(obj);
     first_row = PyList_GET_ITEM(obj, 0);
     d = PyList_GET_SIZE(first_row);
 
     mat = create_matrix(N, d, which_pool);
-    CHECK_MATRIX_ALLOC(mat);
+    if (!mat)
+        return NULL;
 
     for (i = 0; i < N; i++)
     {
@@ -43,7 +45,6 @@ PyObject *matrix_to_pylist(MatrixPtr mat, int k, int d)
 {
     PyObject *outer, *row, *val;
     int i, j;
-
 
     outer = PyList_New(k);
     if (!outer)
@@ -84,23 +85,23 @@ static PyObject *symnmf(PyObject *self, PyObject *args)
         return NULL;
 
     H = convertPyObjToMatrix(H_py, REGULAR_ALLOC);
-    if (!H) goto check_free_and_exit;
+    if (!H) goto free_and_exit;
 
     W = convertPyObjToMatrix(W_py, MAIN_POOL);
-    if (!W) goto check_free_and_exit;
+    if (!W) goto free_and_exit;
 
     res_H = getResultH(H, W);
-    if (!res_H) goto check_free_and_exit;
+    if (!res_H) goto free_and_exit;
 
     res_H_py = matrix_to_pylist(res_H, n, k);
-    if (!res_H_py) goto check_free_and_exit;
+    if (!res_H_py) goto free_and_exit;
 
 
     destroy_pools();
 
     return res_H_py;
     
-    check_free_and_exit:
+    free_and_exit:
         ERROR_PRINT();
         destroy_pools();
         return ERROR_CODE;
@@ -118,25 +119,24 @@ static PyObject *sym(PyObject *self, PyObject *args)
         return NULL;
 
     X = convertPyObjToMatrix(X_py, MAIN_POOL);
-    if (!X) goto check_free_and_exit;
+    if (!X) goto free_and_exit;
 
     A = getSimilarityMatrix(X);
-    if (!A) goto check_free_and_exit;
+    if (!A) goto free_and_exit;
 
     A_py = matrix_to_pylist(A, n, n);
-    if (!A_py) goto check_free_and_exit;
+    if (!A_py) goto free_and_exit;
 
     destroy_pools();
     return A_py;
 
-    check_free_and_exit:
+    free_and_exit:
         ERROR_PRINT();
         destroy_pools();
         return ERROR_CODE;
 }
 
-static PyObject *ddg(PyObject *self, PyObject *args)
-{
+static PyObject *ddg(PyObject *self, PyObject *args){
     PyObject *A_py, *D_py;
     MatrixPtr A, D;
     int n;
@@ -146,26 +146,25 @@ static PyObject *ddg(PyObject *self, PyObject *args)
         return NULL;
 
     A = convertPyObjToMatrix(A_py, MAIN_POOL);
-    if (!A) goto check_free_and_exit;
+    if (!A) goto free_and_exit;
 
     D = getDiagonalDegreeMatrix(A);
-    if (!D) goto check_free_and_exit;
+    if (!D) goto free_and_exit;
 
     D_py = matrix_to_pylist(D, n, n);
-    if (!D_py) goto check_free_and_exit;
+    if (!D_py) goto free_and_exit;
 
     destroy_pools();
 
     return D_py;
 
-    check_free_and_exit:
+    free_and_exit:
         ERROR_PRINT();
         destroy_pools();
         return ERROR_CODE;
 }
 
-static PyObject *norm(PyObject *self, PyObject *args)
-{
+static PyObject *norm(PyObject *self, PyObject *args){
     PyObject *W_py, *A_py, *D_py;
     MatrixPtr W, A, D;
     int n;
@@ -176,57 +175,65 @@ static PyObject *norm(PyObject *self, PyObject *args)
         return NULL;
 
     A = convertPyObjToMatrix(A_py, MAIN_POOL);
-    if(!A) goto check_free_and_exit;
+    if(!A) goto free_and_exit;
 
     D = convertPyObjToMatrix(D_py, MAIN_POOL);
-    if (!D) goto check_free_and_exit;
+    if (!D) goto free_and_exit;
 
     W = getNormalizedSimilarityMatrix(A, D);
-    if (!W) goto check_free_and_exit;
+    if (!W) goto free_and_exit;
 
     W_py = matrix_to_pylist(W, n, n);
-    if(!W_py) goto check_free_and_exit;
+    if(!W_py) goto free_and_exit;
 
     destroy_pools();
 
     return W_py;
 
-    check_free_and_exit:
+    free_and_exit:
         ERROR_PRINT();
         destroy_pools();
         return ERROR_CODE;
-}
+    }
 
 /* -------- Module Definition ---------- */
 
 static PyMethodDef symnmfMethods[] = {
     {"symnmf", (PyCFunction)symnmf, METH_VARARGS,
-     "Returns the optimized solution H for clustering.\n"
+     "Calculates the optimized solution for clustering.\n"
      "Args:\n"
-     "  H (list of list of float): initial matrix.\n"
-     "  W (list of list of float): normalized similarity matrix.\n"
+     "  H_py (list of list of float): initial matrix.\n"
+     "  W_py (list of list of float): normalized similarity matrix.\n"
      "  n (int): number of points.\n"
-     "  k (int): number of clusters."},
+     "  k (int): number of clusters.\n"
+     "Outputs:\n"
+     "  res_H_py (list of list of float): optimized solution for clustering from the initial H_py.\n"},
 
     {"sym", (PyCFunction)sym, METH_VARARGS,
-     "Returns the similarity matrix A.\n"
+     "Calculates the similarity matrix A.\n"
      "Args:\n"
-     "  X (list of list of float): data points.\n"
+     "  X_py (list of list of float): data points.\n"
      "  n (int): number of points.\n"
-     "  d (int): dimension."},
+     "  d (int): dimension.\n"
+     "Outputs:\n"
+     "  A_py (list of list of float): similarity matrix of X_py.\n"},
 
     {"ddg", (PyCFunction)ddg, METH_VARARGS,
-     "Returns the diagonal degree matrix D.\n"
+     "Calculates the diagonal degree matrix D.\n"
      "Args:\n"
-     "  A (list of list of float): similarity matrix.\n"
-     "  n (int): number of points."},
+     "  A_py (list of list of float): similarity matrix.\n"
+     "  n (int): number of points.\n"
+     "Outputs:\n"
+     "  D_py (list of list of float): diagonal degree matrix of A_py.\n"},
 
     {"norm", (PyCFunction)norm, METH_VARARGS,
-     "Returns the normalized similarity matrix W.\n"
+     "Calculatess the normalized similarity matrix W.\n"
      "Args:\n"
-     "  A (list of list of float): similarity matrix.\n"
-     "  D (list of list of float): diagonal degree matrix.\n"
-     "  n (int): number of points."},
+     "  A_py (list of list of float): similarity matrix.\n"
+     "  D_py (list of list of float): diagonal degree matrix.\n"
+     "  n (int): number of points.\n"
+     "Outputs:\n"
+     "  W_py (list of list of float): normalized similarity matrix of A_py.\n"},
 
     {NULL, NULL, 0, NULL}};
 

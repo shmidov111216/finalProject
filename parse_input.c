@@ -1,99 +1,87 @@
 #include "parse_input.h"
 
-int grow_line(char **line, size_t *cap, size_t len, FILE *fp)
-{
-    while (len == *cap - 1 && (*line)[len - 1] != '\n')
+int grow_line(char **line, size_t *cap, size_t len, FILE *fp){
+    while (len == *cap - 1 && (*line)[len - 1] != '\n') /* line was cut, need more space */
     {
         char *tmp;
 
-        *cap *= 2;
-        tmp = realloc(*line, *cap);
+        *cap *= 2;                  /* double line buffer size */
+        tmp = realloc(*line, *cap); /* resize line buffer */
         if (!tmp)
-            return 0;
+            return FAIL; /* allocation failed */
 
-        *line = tmp;
+        *line = tmp; /* use new buffer */
 
-        if (!fgets(*line + len, (int)(*cap - len), fp))
+        if (!fgets(*line + len, (int)(*cap - len), fp)) /* keep reading same line */
             break;
 
-        len = strlen(*line);
+        len = strlen(*line); /* update current line length */
     }
-    return 1;
+    return SUCCESS;
 }
 
-int ensure_capacity(double **buffer, int *cap, int used)
-{
-    if (used >= *cap)
+int ensure_capacity(double **buffer, int *cap, int used){
+    if (used >= *cap) /* numeric buffer is full */
     {
         double *tmp;
 
-        *cap *= 2;
-        tmp = realloc(*buffer, (*cap) * sizeof(double));
+        *cap *= 2;                                       /* double numeric capacity */
+        tmp = realloc(*buffer, (*cap) * sizeof(double)); /* resize numbers array */
         if (!tmp)
-            return 0;
+            return FAIL;
 
-        *buffer = tmp;
+        *buffer = tmp; /* use resized array */
     }
-    return 1;
+    return SUCCESS; 
 }
 
-int parse_line(char *line, double **buffer, int *used, int *cap)
-{
+int parse_line(char *line, double **buffer, int *used, int *cap){
     char *token;
     int col_count = 0;
-    token = strtok(line, ", \t\n");
+    token = strtok(line, ", \t\n"); /* first number in line */
 
     while (token)
     {
         if (!ensure_capacity(buffer, cap, *used))
-            return -1;
+            return -1; /* failed growing numeric array */
 
-        (*buffer)[(*used)++] = atof(token);
-        col_count++;
-        token = strtok(NULL, ", \t\n");
+        (*buffer)[(*used)++] = atof(token); /* save parsed number */
+        col_count++;                        /* count values in this row */
+        token = strtok(NULL, ", \t\n");     /* next number */
     }
-    return col_count;
+    return col_count; /* how many columns this row had */
 }
 
 MatrixPtr parse_matrix_from_stream(FILE *fp){
-    size_t line_cap = 1024;
-    char *line = malloc(line_cap);
+    int rows = 0, cols = -1, total_used = 0, col_count, total_cap = INIT_CAP;
+    size_t line_cap = 1024, len;
+    char *line = malloc(line_cap); /* buffer for reading text rows */
     MatrixPtr X;
+    double *buffer = malloc(INIT_CAP * sizeof(double)); /* stores all matrix values */
 
-    double *buffer = malloc(INIT_CAP * sizeof(double));
+    if (!line || !buffer) goto memory_error; /* initial allocation failed */
 
-    int rows = 0, cols = -1;
-    int total_used = 0, total_cap = INIT_CAP;
-
-    if (!line || !buffer) goto memory_error;
-
-    while (fgets(line, (int)line_cap, fp))
+    while (fgets(line, (int)line_cap, fp)) /* read one row at a time */
     {
-        size_t len = strlen(line);
-        int col_count;
+        len = strlen(line);
 
-        if (!grow_line(&line, &line_cap, len, fp))
-            goto memory_error;
+        if (!grow_line(&line, &line_cap, len, fp)) goto memory_error; /* failed resizing line buffer */
 
-        col_count = parse_line(line, &buffer, &total_used, &total_cap);
-        if (col_count < 0) goto memory_error;
-
-        if (col_count == 0) continue;
-
-        if (cols == -1) cols = col_count;
-        else if (cols != col_count) goto memory_error;
-
-        rows++;
+        col_count = parse_line(line, &buffer, &total_used, &total_cap); /* parse current row */
+        if (col_count < 0) goto memory_error; /* failed parsing numeric values */
+        if (cols == -1) cols = col_count; /* first row sets column count */
+        rows++; /* valid row counted */
     }
-    free(line);
-    
-    X = create_matrix(rows, cols, MAIN_POOL);
+    free(line); /* text buffer no longer needed */
+
+    X = create_matrix(rows, cols, MAIN_POOL); /* create final matrix */
     if (!X) goto memory_error;
-    X->data = buffer; 
+
+    X->data = buffer; /* attach parsed values */
     return X;
 
     memory_error:
-    free(line);
+    free(line); /* free if allocated */
     free(buffer);
-    return NULL;
+    return NULL; /* signal failure */
 }

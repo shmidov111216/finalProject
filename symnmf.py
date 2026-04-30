@@ -4,6 +4,21 @@ import pandas
 import symnmfmodule
 
 def init_H(W : list[list], k):
+    """
+    Initialize the H matrix for SymNMF.
+
+    Parameters
+    ----------
+    W : list[list]
+        Normalized similarity matrix.
+    k : int
+        Number of clusters.
+
+    Returns
+    -------
+    np.ndarray
+        Initialized H matrix (n x k).
+    """
     W_np = np.array(W)
     m = np.mean(W_np)
     n = W_np.shape[0]
@@ -12,45 +27,80 @@ def init_H(W : list[list], k):
     return H
 
 def get_clusters_from_H(H: np.ndarray) -> np.ndarray:
-    # argmax along the row gives the cluster index
+    """
+    Assign clusters using the maximum value in each row of H.
+
+    Parameters
+    ----------
+    H : np.ndarray
+        SymNMF result matrix.
+
+    Returns
+    -------
+    np.ndarray
+        Cluster indices.
+    """
     clusters = np.argmax(H, axis=1)
     return clusters
 
 def print_formatted(mat):
+    """
+    Print a matrix with comma-separated values.
+
+    Parameters
+    ----------
+    mat : array-like
+        Matrix to print.
+    """
     print('\n'.join([','.join([f"{x:.4f}" for x in line]) for line in mat]))
 
 def symnmf_clustering(X: np.ndarray, k: int, goal='symnmf'):
+    """
+    Run SymNMF or return an intermediate matrix.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        Data matrix.
+    k : int
+        Number of clusters.
+    goal : str
+        {'sym', 'ddg', 'norm', 'symnmf'}.
+
+    Returns
+    -------
+    array-like
+        Result matrix.
+    """ 
     try:
         n, d = X.shape
 
-        # --- Step 1: Similarity matrix ---
-        A = symnmfmodule.sym(X.tolist(), n, d)
+        A = symnmfmodule.sym(X.tolist(), n, d) # Step 1: Similarity matrix
         if goal == 'sym':
-            return A
-        
-        # --- Step 2: Diagonal Degree matrix ---
-        D = symnmfmodule.ddg(A, n)
+            return A 
+        D = symnmfmodule.ddg(A, n) # Step 2: Diagonal Degree matrix
         if goal == 'ddg':
             return D
-
-        # --- Step 3: Normalized similarity matrix ---
-        W = symnmfmodule.norm(A, D, n)
+        W = symnmfmodule.norm(A, D, n) # Step 3: Normalized similarity matrix
         if goal == 'norm':
             return W
-
-        # --- Step 4: Initialize H ---
-        H_init = init_H(W, k)
-
-        # --- Step 5: Run SymNMF ---
-        H = symnmfmodule.symnmf(H_init.tolist(), W, n, k)
-        
+        H_init = init_H(W, k) # Step 4: Initialize H
+        H = symnmfmodule.symnmf(H_init.tolist(), W, n, k) # Step 5: Run SymNMF
         if goal == 'symnmf':
             return H
-    except:
-        print("An Error Has Occurred")
+    except Exception as e:
+        print('An Error Has Occurred')
         exit(1)
     
 def main(*args):
+    """
+    Run the program from command-line arguments.
+
+    Parameters
+    ----------
+    args : tuple
+        (k, goal, input_file)
+    """
     try:
         k = int(args[0])
         goal = args[1]

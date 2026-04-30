@@ -10,7 +10,6 @@ static MemoryPool tempPoolObj;
 static MemoryPool *mainPool = &mainPoolObj;
 static MemoryPool *tempPool = &tempPoolObj;
 
-static int fail_after = -1;
 
 void pool_init(MemoryPool *pool)
 {
@@ -18,14 +17,14 @@ void pool_init(MemoryPool *pool)
         pool->head = NULL;
 }
 
-/* Wrapper for easy use */
+/* --- MEMORY POOL FUNCTIONS --- */
+
 void pool_register_choice(int which_pool, void *ptr)
 {
     MemoryPool *pool = (which_pool == MAIN_POOL) ? mainPool : tempPool;
     (void)pool_register(pool, ptr); /* explicitly ignore return to avoid warning */
 }
 
-/* Add existing pointer to pool */
 void *pool_register(MemoryPool *pool, void *ptr)
 {
     Allocation *node;
@@ -46,23 +45,16 @@ void *pool_register(MemoryPool *pool, void *ptr)
     return ptr;
 }
 
-/* malloc on given pool */
 void *pool_alloc(MemoryPool *pool, size_t size)
 {
     return pool_register(pool, malloc(size));
 }
 
-/* calloc on given pool */
 void *pool_calloc(MemoryPool *pool, size_t num, size_t size)
 {
-    if(fail_after != 0){
-        fail_after--;
-        return pool_register(pool, calloc(num, size));
-    }
-    return NULL;
+    return pool_register(pool, calloc(num, size));
 }
 
-/* Free all memory on given pool */
 void pool_free_all(int which_pool)
 {
     MemoryPool *pool = (which_pool == MAIN_POOL) ? mainPool : tempPool;
@@ -97,19 +89,21 @@ void destroy_pools()
     tempPool->head = NULL;
 }
 
-/* Call before using pools */
 void init_pools()
 {
+    /* Call this function before using pools */
     pool_init(mainPool);
     pool_init(tempPool);
 }
 /* --- END MEMORY POOL --- */
 
-/* Create a matrix of size m x n in the given pool */
+
+/* --- MATRIX CORE OPERATIONS --- */
+
 MatrixPtr create_matrix(int m, int n, int which_pool)
 {
     MemoryPool *pool = NULL;
-    MatrixPtr A;
+    MatrixPtr A = NULL;
     size_t total_size;
 
     total_size = sizeof(Matrix) + (size_t)m * n * sizeof(double);
@@ -121,7 +115,8 @@ MatrixPtr create_matrix(int m, int n, int which_pool)
         pool = (which_pool == MAIN_POOL) ? mainPool : tempPool;
         A = (MatrixPtr)pool_calloc(pool, 1, total_size);
     }
-    CHECK_MATRIX_ALLOC(A);
+    if (A == NULL)
+        return NULL;
 
     A->m = m;
     A->n = n;
@@ -132,7 +127,6 @@ MatrixPtr create_matrix(int m, int n, int which_pool)
     return A;
 }
 
-/* Free memory ,No pool involved */
 int free_matrix(MatrixPtr A)
 {
     if (A == NULL)
@@ -142,10 +136,13 @@ int free_matrix(MatrixPtr A)
     return SUCCESS;
 }
 
-/* Print matrix */
 void print_matrix(MatrixPtr A)
 {
     int i, j;
+
+    if (A == NULL)
+        return;
+        
     for (i = 0; i < A->m; i++)
     {
         for (j = 0; j < A->n; j++)
@@ -158,26 +155,34 @@ void print_matrix(MatrixPtr A)
     }
 }
 
-/* Get element from matrix */
 double mat_get(MatrixPtr A, int i, int j)
 {
+    if (A == NULL)
+        return FAIL; 
     return MAT(A, i, j);
 }
 
-/* Set element */
 void mat_set(MatrixPtr A, int i, int j, double val)
 {
+    if (A == NULL)
+        return;
     MAT(A, i, j) = val;
 }
+/* --- END MATRIX CORE OPERATIONS --- */
 
-/* Transpose (returns new matrix) */
+
+/* --- MATRIX NUMERICAL OPERATIONS AND TRANSFORMATIONS --- */
+
 MatrixPtr mat_transpose(MatrixPtr A, int which_pool)
 {
     MatrixPtr T;
     int i, j;
+    if (A == NULL)
+        return NULL;
 
     T = create_matrix(A->n, A->m, which_pool);
-    CHECK_MATRIX_ALLOC(T);
+    if (T == NULL)
+        return NULL;
 
     for (i = 0; i < A->m; i++)
         for (j = 0; j < A->n; j++)
@@ -186,42 +191,48 @@ MatrixPtr mat_transpose(MatrixPtr A, int which_pool)
     return T;
 }
 
-/* In-place addition A = A + B */
 void mat_add_inplace(MatrixPtr A, MatrixPtr B)
 {
     size_t k;
     size_t size = (size_t)A->m * A->n;
-
+    
     for (k = 0; k < size; k++)
         A->data[k] += B->data[k];
 }
 
-/* In-place aij=aij+x for a scalar x */
 void mat_add_scalar_inplace(MatrixPtr A, double scalar)
 {
     int i, j;
+
+    if (A == NULL)
+        return;
+        
     for (i = 0; i < A->m; i++)
         for (j = 0; j < A->n; j++)
             MAT(A, i, j) += scalar;
 }
 
-/* In-place aij=aij*x for a scalar x */
 void mat_scalar_mult_inplace(MatrixPtr A, double scalar)
 {
     int i, j;
+    if (A == NULL)
+        return;
     for (i = 0; i < A->m; i++)
         for (j = 0; j < A->n; j++)
             MAT(A, i, j) *= scalar;
 }
 
-/* Dot product */
 MatrixPtr mat_dot(MatrixPtr A, MatrixPtr B, int which_pool)
 {
     MatrixPtr C;
     int i, j, k;
 
+    if (A == NULL || B == NULL || A->n != B->m)
+        return NULL;
+
     C = create_matrix(A->m, B->n, which_pool);
-    CHECK_MATRIX_ALLOC(C);
+    if (C == NULL)
+        return NULL;
 
     for (i = 0; i < A->m; i++)
         for (j = 0; j < B->n; j++)
@@ -235,14 +246,17 @@ MatrixPtr mat_dot(MatrixPtr A, MatrixPtr B, int which_pool)
     return C;
 }
 
-/* Element-wise multiplication (returns new matrix) */
 MatrixPtr mat_elementwise_prod(MatrixPtr A, MatrixPtr B, int which_pool)
 {
     MatrixPtr C;
     int i, j;
 
+    if (A == NULL || B == NULL)
+        return NULL;
+
     C = create_matrix(A->m, A->n, which_pool);
-    CHECK_MATRIX_ALLOC(C);
+    if (C == NULL)
+        return NULL;
 
     for (i = 0; i < A->m; i++)
         for (j = 0; j < A->n; j++)
@@ -251,19 +265,24 @@ MatrixPtr mat_elementwise_prod(MatrixPtr A, MatrixPtr B, int which_pool)
     return C;
 }
 
-/* Element-wise multiplication in-place A *= B */
 void mat_elementwise_prod_inplace(MatrixPtr A, MatrixPtr B)
 {
     int i, j;
+    if (A == NULL || B == NULL)
+        return;
+
     for (i = 0; i < A->m; i++)
         for (j = 0; j < A->n; j++)
             MAT(A, i, j) *= MAT(B, i, j);
 }
 
-/* In-place reciprocal */
 void mat_reciprocal_inplace(MatrixPtr A)
 {
     int i, j;
+
+    if (A == NULL)
+        return;
+        
     for (i = 0; i < A->m; i++)
         for (j = 0; j < A->n; j++)
         {
@@ -271,11 +290,13 @@ void mat_reciprocal_inplace(MatrixPtr A)
         }
 }
 
-/* frobenius norm squared */
 double mat_norm_sq(MatrixPtr A)
 {
     double sum = 0.0;
     int i, j;
+
+    if (A == NULL)
+        return FAIL;
 
     for (i = 0; i < A->m; i++)
         for (j = 0; j < A->n; j++)
@@ -284,38 +305,46 @@ double mat_norm_sq(MatrixPtr A)
     return sum;
 }
 
-/* replace all zeroes with 1e-6 (to avoid division by 0) */
-void replace_zeroes(MatrixPtr A)
+void add_infinitesimal_inplace(MatrixPtr A)
 {
     int i, j;
+
+    if (A == NULL)
+        return;
+        
     for (i = 0; i < A->m; i++)
         for (j = 0; j < A->n; j++)
-            if (MAT(A, i, j) == 0.0)
-                MAT(A, i, j) = 1e-6;
+                MAT(A, i, j) += 1e-6;
 }
 
-/* return the vector (v = Row_i(X) - Row_j(X)) */
 MatrixPtr get_row_diff(MatrixPtr X, int i, int j, int which_pool)
 {
     MatrixPtr diffVector;
     int k;
     int size;
 
+    if (X == NULL)
+        return NULL;
+    
     size = X->n;
     diffVector = create_matrix(1, size, which_pool);
-    CHECK_MATRIX_ALLOC(diffVector);
-
+    if (diffVector == NULL)
+        return NULL;
+    
     for (k = 0; k < size; k++)
         MAT(diffVector, 0, k) = MAT(X, i, k) - MAT(X, j, k);
 
     return diffVector;
 }
 
-/* return sum of all matrix values */
 double mat_sum(MatrixPtr A)
 {
-    double sum = 0.0;
     int i, j;
+    double sum = 0.0;
+    
+
+    if (A == NULL)
+        return -1;
 
     for (i = 0; i < A->m; i++)
         for (j = 0; j < A->n; j++)
@@ -324,15 +353,18 @@ double mat_sum(MatrixPtr A)
     return sum;
 }
 
-/* returns new column vector where (vi = sum(Row_i(X))) */
 MatrixPtr sum_axis_0(MatrixPtr A, int which_pool)
 {
     MatrixPtr sumVector;
     int i, j;
     double row_sum;
 
+    if (A == NULL)
+        return NULL;
+
     sumVector = create_matrix(A->m, 1, which_pool);
-    CHECK_MATRIX_ALLOC(sumVector);
+    if (sumVector == NULL)
+        return NULL;
 
     for (i = 0; i < A->m; i++)
     {
@@ -345,25 +377,30 @@ MatrixPtr sum_axis_0(MatrixPtr A, int which_pool)
     return sumVector;
 }
 
-/* (aii=aii^p) where p a scalar  */
 void diagonal_power_inplace(MatrixPtr A, double power)
 {
     int i;
     int limit = (A->m < A->n) ? A->m : A->n;
+    
+    if (A == NULL)
+        return;
 
     for (i = 0; i < limit; i++)
         MAT(A, i, i) = pow(MAT(A, i, i), power);
 }
 
-/* (D * A) where A,D are square matrices (of the same size) and D is diagonal */
 MatrixPtr mat_dot_diagonal_left(MatrixPtr D, MatrixPtr A, int which_pool)
 {
     MatrixPtr C;
     int i, j;
     double d_ii;
 
+    if (A == NULL || D == NULL)
+        return NULL;
+
     C = create_matrix(A->m, A->n, which_pool);
-    CHECK_MATRIX_ALLOC(C);
+    if (C == NULL)
+        return NULL;
 
     for (i = 0; i < A->m; i++)
     {
@@ -375,15 +412,18 @@ MatrixPtr mat_dot_diagonal_left(MatrixPtr D, MatrixPtr A, int which_pool)
     return C;
 }
 
-/* (A * D) where A,D are square matrices (of the same size) and D is diagonal */
 MatrixPtr mat_dot_diagonal_right(MatrixPtr A, MatrixPtr D, int which_pool)
 {
     MatrixPtr C;
     int i, j;
     double d_jj;
 
+    if (A == NULL || D == NULL)
+        return NULL;
+
     C = create_matrix(A->m, A->n, which_pool);
-    CHECK_MATRIX_ALLOC(C);
+    if (C == NULL)
+        return NULL;
 
     for (i = 0; i < A->m; i++)
     {
@@ -396,3 +436,4 @@ MatrixPtr mat_dot_diagonal_right(MatrixPtr A, MatrixPtr D, int which_pool)
 
     return C;
 }
+/* --- END MATRIX NUMERICAL OPERATIONS AND TRANSFORMATIONS --- */
